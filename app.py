@@ -22,13 +22,13 @@ CITIES = ["Ankara", "İstanbul", "İzmir", "Bursa", "Antalya"]
 # --- Firebase bağlantısı -------------------------------------
 @st.cache_resource
 def get_db():
-    """Firebase'e tek sefer bağlanır (Gelişmiş bulut uyumlu sürüm)."""
+    """Firebase'e tek sefer bağlanır (Bulut uyumlu)."""
     if not firebase_admin._apps:
-        # Eğer site Streamlit Cloud'da çalışıyorsa şifreyi Secrets'tan oku
+        # Eğer site Streamlit Cloud'daysa şifreyi Secrets'tan oku
         if "firebase_json" in st.secrets:
             key_dict = json.loads(st.secrets["firebase_json"])
             cred = credentials.Certificate(key_dict)
-        # Eğer kendi bilgisayarında çalışıyorsa yerel dosyadan oku
+        # Kendi bilgisayarındaysa yerel dosyadan oku
         else:
             cred = credentials.Certificate("firebase_key.json")
         firebase_admin.initialize_app(cred)
