@@ -1,9 +1,10 @@
 # ============================================================
 #  PAYLAŞ — Dayanışma & Bağış Platformu
-#  Firebase (Firestore) sürümü — veri bulutta, herkes ortak görür
+#  Firebase (Firestore) sürümü — profesyonel arayüz
 # ============================================================
 #  GEREKLİ:
 #    pip install streamlit firebase-admin
+#  firebase_key.json dosyası app.py ile aynı klasörde olmalı.
 # ============================================================
 
 from datetime import date, datetime
@@ -12,7 +13,8 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # --- Sabitler -------------------------------------------------
-CATEGORIES = ["Giyim", "Mobilya", "Elektronik", "Eğitim / Kırtasiye", "Ev Eşyası", "Çocuk / Oyuncak"]
+CATEGORIES = ["Giyim", "Mobilya", "Elektronik", "Eğitim / Kırtasiye",
+              "Ev Eşyası", "Çocuk / Oyuncak"]
 CITIES = ["Ankara", "İstanbul", "İzmir", "Bursa", "Antalya"]
 
 
@@ -31,19 +33,13 @@ db = get_db()
 
 # --- Veri fonksiyonları (Firestore) --------------------------
 def add_item(d):
-    db.collection("items").add({
-        **d,
-        "date": date.today().isoformat(),
-        "created": datetime.utcnow().isoformat(),
-    })
+    db.collection("items").add({**d, "date": date.today().isoformat(),
+                                "created": datetime.utcnow().isoformat()})
 
 
 def add_need(d):
-    db.collection("needs").add({
-        **d,
-        "date": date.today().isoformat(),
-        "created": datetime.utcnow().isoformat(),
-    })
+    db.collection("needs").add({**d, "date": date.today().isoformat(),
+                                "created": datetime.utcnow().isoformat()})
 
 
 def get_items():
@@ -59,178 +55,265 @@ def get_needs():
 
 
 # ============================================================
-#  ARAYÜZ VE GÖRSEL TASARIM (CSS Geliştirmeleri Yapıldı)
+#  SAYFA AYARI + TASARIM (CSS)
 # ============================================================
-st.set_page_config(page_title="Paylaş", page_icon="🤝", layout="wide")
+st.set_page_config(page_title="Paylaş — Dayanışma Platformu",
+                   page_icon="🤝", layout="wide")
 
-# Uygulamanın modern görünmesi için özel CSS enjeksiyonu
 st.markdown("""
-    <style>
-    /* Genel Arka Plan ve Kart Güzelleştirmeleri */
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] {
-        padding: 10px 20px;
-        background-color: #F3F4F6;
-        border-radius: 8px 8px 0px 0px;
-        font-weight: bold;
-    }
-    .stTabs [aria-selected="true"] { 
-        background-color: #4F46E5 !important; 
-        color: white !important;
-    }
-    
-    /* Detay Kutusu Özelleştirmeleri */
-    .detail-box {
-        padding: 12px;
-        border-left: 4px solid #4F46E5;
-        background-color: #F9FAFB;
-        border-radius: 4px;
-        margin-bottom: 10px;
-    }
-    </style>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+:root{
+  --green:#1A5D4E; --green-2:#2C8A6E; --coral:#E07A5F;
+  --amber:#C77D3A; --paper:#F6F3EC; --card:#FFFFFF;
+  --ink:#241F1A; --muted:#857B6E; --line:#E7DFD2;
+}
+
+/* genel */
+.stApp{ background:var(--paper); }
+html,body,[class*="css"],.stApp,p,span,div,label,input,textarea,select{
+  font-family:'Plus Jakarta Sans',sans-serif; color:var(--ink);
+}
+.block-container{ padding-top:1.2rem; max-width:1180px; }
+#MainMenu, footer, header[data-testid="stHeader"]{ visibility:hidden; height:0; }
+
+/* HERO */
+.hero{ text-align:center; padding:8px 0 4px; }
+.hero .logo{
+  font-family:'Fraunces',serif; font-weight:700; font-size:3.1rem;
+  letter-spacing:-1px; color:var(--green); line-height:1; margin:0;
+}
+.hero .logo .dot{ color:var(--coral); }
+.hero .tag{ color:var(--muted); font-size:1.05rem; margin-top:6px; }
+
+/* istatistik şeridi */
+.stats{ display:flex; gap:14px; justify-content:center; margin:18px 0 6px; flex-wrap:wrap; }
+.stat{
+  background:var(--card); border:1px solid var(--line); border-radius:16px;
+  padding:14px 26px; text-align:center; min-width:150px;
+  box-shadow:0 1px 2px rgba(36,31,26,.04);
+}
+.stat .num{ font-family:'Fraunces',serif; font-size:1.9rem; font-weight:700; color:var(--green); line-height:1; }
+.stat .lbl{ font-size:.82rem; color:var(--muted); margin-top:4px; text-transform:uppercase; letter-spacing:.5px; }
+
+/* sütun başlıkları */
+.colhead{ display:flex; align-items:center; gap:10px; padding:12px 16px;
+  border-radius:14px; margin:8px 0 16px; font-weight:700; font-size:1.15rem; color:#fff; }
+.colhead.give{ background:linear-gradient(135deg,#1A5D4E,#2C8A6E); }
+.colhead.need{ background:linear-gradient(135deg,#B85C38,#E07A5F); }
+
+/* ilan kartı */
+.lcard{
+  background:var(--card); border:1px solid var(--line); border-radius:16px;
+  padding:16px 18px; margin-bottom:14px; transition:.18s ease;
+  box-shadow:0 1px 2px rgba(36,31,26,.04);
+}
+.lcard:hover{ transform:translateY(-2px); box-shadow:0 8px 22px rgba(36,31,26,.10); }
+.lcard.donation{ border-left:4px solid var(--green-2); }
+.lcard.request{ border-left:4px solid var(--coral); }
+.lhead{ display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; }
+.badge{ font-size:.72rem; font-weight:700; padding:4px 10px; border-radius:999px; letter-spacing:.3px; }
+.donation-b{ background:#E4F1EC; color:#1A5D4E; }
+.request-b{ background:#FBE9E2; color:#B85C38; }
+.lloc{ font-size:.8rem; color:var(--muted); }
+.ltitle{ font-family:'Fraunces',serif; font-size:1.22rem; font-weight:600; color:var(--ink); margin:2px 0 6px; }
+.qty{ font-size:.72rem; background:#F0EBE0; color:var(--muted); padding:2px 8px; border-radius:8px; font-family:'Plus Jakarta Sans'; vertical-align:middle; }
+.ldesc{ font-size:.9rem; color:var(--muted); line-height:1.45; margin-bottom:12px; }
+.lfoot{ display:flex; justify-content:space-between; align-items:center; gap:8px;
+  border-top:1px solid var(--line); padding-top:10px; flex-wrap:wrap; }
+.lperson{ font-size:.85rem; color:var(--ink); }
+.lphone{ font-size:.83rem; font-weight:700; text-decoration:none; color:#fff !important;
+  background:var(--green); padding:6px 14px; border-radius:999px; }
+.lphone:hover{ background:var(--green-2); }
+.lphone-muted{ font-size:.8rem; color:var(--muted); }
+.empty{ text-align:center; color:var(--muted); padding:30px; border:1px dashed var(--line);
+  border-radius:16px; background:var(--card); }
+
+/* grid (havuz sekmeleri) */
+.grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:14px; }
+
+/* sekmeler */
+.stTabs [data-baseweb="tab-list"]{ gap:8px; border-bottom:none; }
+.stTabs [data-baseweb="tab"]{
+  background:#EFEADF; border-radius:12px; padding:10px 18px; font-weight:600; color:var(--muted);
+}
+.stTabs [aria-selected="true"]{ background:var(--green) !important; color:#fff !important; }
+.stTabs [data-baseweb="tab-highlight"]{ display:none; }
+
+/* form bileşenleri */
+.stTextInput input,.stTextArea textarea,.stNumberInput input,
+div[data-baseweb="select"]>div{
+  border-radius:10px !important; border:1.5px solid var(--line) !important; background:#fff !important;
+}
+.stTextInput input:focus,.stTextArea textarea:focus{ border-color:var(--green-2) !important; }
+.stButton button,.stFormSubmitButton button{
+  background:var(--green); color:#fff; border:none; border-radius:10px;
+  padding:9px 22px; font-weight:700; transition:.15s;
+}
+.stButton button:hover,.stFormSubmitButton button:hover{ background:var(--green-2); color:#fff; }
+.sechead{ font-family:'Fraunces',serif; font-size:1.5rem; font-weight:600; color:var(--green); margin:4px 0 2px; }
+hr{ border-color:var(--line); }
+</style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1 style='text-align: center; color: #4F46E5; margin-bottom: 0px;'>🤝 PAYLAŞ</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #6B7280; font-size: 1.1rem;'>İhtiyaç fazlasını, ihtiyaç sahibiyle buluşturan ücretsiz dayanışma platformu.</p>", unsafe_allow_html=True)
-st.markdown("---")
 
-tab_home, tab_items, tab_needs = st.tabs(["🏠 Ana Sayfa (Canlı Akış)", "🎁 Bağış Havuzu", "📦 Talep Havuzu"])
+# --- Kart üretici (tek satır HTML, markdown bozulmasın diye) ---
+def card_html(title, cat, kind, loc, desc, person_label, person, phone, qty=None):
+    d = (desc or "").strip()
+    d = (d[:120] + "…") if len(d) > 120 else (d or "Açıklama eklenmemiş.")
+    if phone and phone not in ("", "Belirtilmemiş"):
+        ph = f'<a class="lphone" href="tel:{phone}">📞 İletişime Geç</a>'
+    else:
+        ph = '<span class="lphone-muted">📞 Telefon yok</span>'
+    q = f' <span class="qty">×{qty}</span>' if qty else ""
+    bcls = "donation" if kind == "donation" else "request"
+    return (
+        f'<div class="lcard {bcls}">'
+        f'<div class="lhead"><span class="badge {bcls}-b">{cat}</span>'
+        f'<span class="lloc">📍 {loc}</span></div>'
+        f'<div class="ltitle">{title}{q}</div>'
+        f'<div class="ldesc">{d}</div>'
+        f'<div class="lfoot"><span class="lperson">{person_label}: <b>{person}</b></span>{ph}</div>'
+        f'</div>'
+    )
 
-# --- Sekme 1: YENİ ANA SAYFA (Büyük Yan Yana Liste) ------------
+
+# --- HERO + İSTATİSTİK ---------------------------------------
+items_all = get_items()
+needs_all = get_needs()
+sehir_sayisi = len({*[i.get("city", "") for i in items_all],
+                    *[n.get("city", "") for n in needs_all]} - {""})
+
+st.markdown(
+    '<div class="hero"><div class="logo">Payla<span class="dot">ş</span></div>'
+    '<div class="tag">İhtiyaç fazlasını, ihtiyaç sahibiyle buluşturan ücretsiz dayanışma platformu.</div></div>',
+    unsafe_allow_html=True)
+
+st.markdown(
+    f'<div class="stats">'
+    f'<div class="stat"><div class="num">{len(items_all)}</div><div class="lbl">Aktif Bağış</div></div>'
+    f'<div class="stat"><div class="num">{len(needs_all)}</div><div class="lbl">Açık Talep</div></div>'
+    f'<div class="stat"><div class="num">{sehir_sayisi}</div><div class="lbl">Şehir</div></div>'
+    f'</div>', unsafe_allow_html=True)
+
+st.write("")
+tab_home, tab_items, tab_needs = st.tabs(
+    ["🏠  Canlı Akış", "🎁  Bağış Ekle", "📦  Talep Ekle"])
+
+# --- Sekme 1: CANLI AKIŞ -------------------------------------
 with tab_home:
-    st.markdown("<p style='text-align: center; color: #9CA3AF;'>Sistemdeki tüm aktif ilanların anlık akışı. Detaylar ve iletişim için ilanlara tıklayın.</p>", unsafe_allow_html=True)
-    
-    # Sayfayı iki büyük kolona bölüyoruz: Bağışlar (Yeşil) - Talepler (Kırmızı)
-    col_bagis, col_talep = st.columns(2)
-    
-    # SOL TARAF: BAĞIŞLAR (YEŞİL)
-    with col_bagis:
-        st.markdown("<div style='background-color: #10B981; padding: 12px; border-radius: 8px; margin-bottom: 15px;'><h2 style='color: white; text-align: center; margin: 0;'>🟢 BAĞIŞLAR</h2></div>", unsafe_allow_html=True)
-        
-        items = get_items()
-        if not items:
-            st.info("Henüz bağışlanan bir eşya yok.")
-        else:
-            for it in items:
-                telefon_no = it.get("phone", "Belirtilmemiş")
-                ek_aciklama = it.get("description", "Açıklama belirtilmemiş.")
-                
-                # Tıklanabilir Bağış Kartı
-                with st.expander(f"🎁 {it['title']} ({it['district']}, {it['city']})"):
-                    st.markdown(f"<div class='detail-box'><b>Kategori:</b> {it['category']}<br><b>Eşya Durumu:</b> {it['condition']}<br><b>Bağışçı:</b> {it['donor']}</div>", unsafe_allow_html=True)
-                    st.write(f"📝 **Ek Bilgi:** {ek_aciklama}")
-                    st.success(f"📞 **Bağışçı Telefonu:** [{telefon_no}](tel:{telefon_no})")
+    col_g, col_n = st.columns(2, gap="large")
 
-    # SAĞ TARAF: TALEPLER (KIRMIZI)
-    with col_talep:
-        st.markdown("<div style='background-color: #EF4444; padding: 12px; border-radius: 8px; margin-bottom: 15px;'><h2 style='color: white; text-align: center; margin: 0;'>🔴 TALEPLER</h2></div>", unsafe_allow_html=True)
-        
-        needs = get_needs()
-        if not needs:
-            st.info("Henüz oluşturulmuş bir ihtiyaç talebi yok.")
+    with col_g:
+        st.markdown('<div class="colhead give">🟢 Bağışlanan Eşyalar</div>', unsafe_allow_html=True)
+        if not items_all:
+            st.markdown('<div class="empty">Henüz bağışlanan bir eşya yok.<br>İlk paylaşan sen ol! 🎁</div>', unsafe_allow_html=True)
         else:
-            for n in needs:
-                t_telefon = n.get("phone", "Belirtilmemiş")
-                t_aciklama = n.get("description", "Açıklama belirtilmemiş.")
-                t_adet = n.get("quantity", 1)
-                
-                # Tıklanabilir Talep Kartı
-                with st.expander(f"📦 {n['title']} — Adet: {t_adet} ({n['district']}, {n['city']})"):
-                    st.markdown(f"<div class='detail-box'><b>Kategori:</b> {n['category']}<br><b>Talep Eden:</b> {n['requester']}</div>", unsafe_allow_html=True)
-                    st.write(f"📝 **İhtiyaç Gerekçesi:** {t_aciklama}")
-                    st.error(f"📞 **İhtiyaç Sahibi Telefonu:** [{t_telefon}](tel:{t_telefon})")
+            html = "".join(card_html(it["title"], it["category"], "donation",
+                                     f"{it['district']}, {it['city']}",
+                                     it.get("description", ""), "Bağışçı", it.get("donor", "Anonim"),
+                                     it.get("phone", "")) for it in items_all)
+            st.markdown(html, unsafe_allow_html=True)
 
-# --- Sekme 2: BAĞIŞ HAVUZU (Ekleme ve Filtreleme) --------------
+    with col_n:
+        st.markdown('<div class="colhead need">🔴 İhtiyaç Talepleri</div>', unsafe_allow_html=True)
+        if not needs_all:
+            st.markdown('<div class="empty">Henüz oluşturulmuş bir talep yok.</div>', unsafe_allow_html=True)
+        else:
+            html = "".join(card_html(n["title"], n["category"], "request",
+                                     f"{n['district']}, {n['city']}",
+                                     n.get("description", ""), "Talep eden", n.get("requester", "Anonim"),
+                                     n.get("phone", ""), n.get("quantity", 1)) for n in needs_all)
+            st.markdown(html, unsafe_allow_html=True)
+
+# --- Sekme 2: BAĞIŞ EKLE -------------------------------------
 with tab_items:
-    st.subheader("Eşya Paylaş")
+    st.markdown('<div class="sechead">Eşya Paylaş</div>', unsafe_allow_html=True)
+    st.caption("İhtiyaç fazlası eşyanı birkaç bilgiyle paylaş, ihtiyaç sahibine ulaşsın.")
     with st.form("item_form", clear_on_submit=True):
-        title = st.text_input("Eşya Başlığı", placeholder="ör. Kışlık çocuk montu")
-        kategori = st.selectbox("Kategori", CATEGORIES)
-        durum = st.selectbox("Eşyanın Durumu", ["Yeni Gibi", "Çok İyi", "İyi", "Orta"])
-        sehir = st.selectbox("Bulunduğu Şehir", CITIES)
-        ilce = st.text_input("İlçe", placeholder="ör. Çankaya")
-        bagisci = st.text_input("İsim Soyisim / Adınız", placeholder="ör. Elif K.")
-        phone = st.text_input("İletişim Telefon Numarası", placeholder="ör. 05551234567")
-        description = st.text_area("Eşya Hakkında Ek Bilgiler / Açıklama", placeholder="ör. Herhangi bir yırtığı yoktur, temiz durumdadır.")
-        
-        if st.form_submit_button("Bağış İlanı Yayınla") and title and phone:
-            add_item({"title": title, "category": kategori, "condition": durum, "city": sehir, 
-                      "district": ilce or "—", "donor": bagisci or "Anonim", "phone": phone, 
-                      "description": description or "Açıklama yok."})
-            st.success("Bağış ilanınız başarıyla sisteme yüklendi!")
+        c1, c2 = st.columns(2)
+        title = c1.text_input("Eşya Başlığı", placeholder="ör. Kışlık çocuk montu")
+        kategori = c2.selectbox("Kategori", CATEGORIES)
+        durum = c1.selectbox("Eşyanın Durumu", ["Yeni Gibi", "Çok İyi", "İyi", "Orta"])
+        sehir = c2.selectbox("Bulunduğu Şehir", CITIES)
+        ilce = c1.text_input("İlçe", placeholder="ör. Çankaya")
+        bagisci = c2.text_input("İsim Soyisim", placeholder="ör. Elif K.")
+        phone = st.text_input("İletişim Telefonu", placeholder="ör. 05551234567")
+        description = st.text_area("Açıklama", placeholder="ör. Yırtığı yoktur, temiz durumdadır.")
+        gonder = st.form_submit_button("Bağış İlanını Yayınla")
+        if gonder and title and phone:
+            add_item({"title": title, "category": kategori, "condition": durum, "city": sehir,
+                      "district": ilce or "—", "donor": bagisci or "Anonim",
+                      "phone": phone, "description": description or "Açıklama yok."})
+            st.success("Bağış ilanın başarıyla yayınlandı!")
             st.rerun()
-        elif title and not phone:
-            st.error("Lütfen iletişim için telefon numaranızı giriniz.")
+        elif gonder and not phone:
+            st.error("Lütfen iletişim için telefon numaranı gir.")
 
-    st.write("---")
-    st.subheader("Yüklenen Bağış İlanları")
-    
-    filtre_kat = st.selectbox("🔍 Kategoriye Göre Filtrele (Bağışlar):", ["Hepsi"] + CATEGORIES, key="filter_items")
-    arama_kelimesi_kat = st.text_input("📝 Kelime ile Ara (Bağış İlanlarında):", placeholder="ör. bot, koltuk, kitap...", key="search_items_text")
-    
-    tum_bagislar = get_items()
-    for it in tum_bagislar:
-        if filtre_kat != "Hepsi" and it["category"] != filtre_kat:
+    st.markdown("---")
+    st.markdown('<div class="sechead">Tüm Bağış İlanları</div>', unsafe_allow_html=True)
+    f1, f2 = st.columns([1, 2])
+    fk = f1.selectbox("Kategori", ["Hepsi"] + CATEGORIES, key="fi")
+    fs = f2.text_input("İlanlarda ara", placeholder="ör. mont, koltuk, kitap...", key="si")
+
+    sonuc = []
+    for it in items_all:
+        if fk != "Hepsi" and it["category"] != fk:
             continue
-            
-        if arama_kelimesi_kat:
-            ilan_metni = (it["title"] + " " + it.get("description", "")).lower()
-            if arama_kelimesi_kat.lower() not in ilan_metni:
-                continue
-                
-        telefon_no = it.get("phone", "Belirtilmemiş")
-        ek_aciklama = it.get("description", "Açıklama belirtilmemiş.")
-        
-        with st.expander(f"🎁 {it['title']} — {it['district']}, {it['city']}"):
-            st.markdown(f"**Kategori:** {it['category']} | **Durum:** {it['condition']}")
-            st.markdown(f"**Bağışçı:** {it['donor']}")
-            st.info(f"**Ek Ürün Bilgisi:** {ek_aciklama}")
-            st.success(f"📞 **İletişim Numarası:** [{telefon_no}](tel:{telefon_no})")
+        if fs and fs.lower() not in (it["title"] + " " + it.get("description", "")).lower():
+            continue
+        sonuc.append(it)
+    if sonuc:
+        html = "".join(card_html(it["title"], it["category"], "donation",
+                                 f"{it['district']}, {it['city']}", it.get("description", ""),
+                                 "Bağışçı", it.get("donor", "Anonim"), it.get("phone", "")) for it in sonuc)
+        st.markdown(f'<div class="grid">{html}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="empty">Aramana uyan bağış bulunamadı.</div>', unsafe_allow_html=True)
 
-# --- Sekme 3: TALEP HAVUZU (Ekleme ve Filtreleme) --------------
+# --- Sekme 3: TALEP EKLE -------------------------------------
 with tab_needs:
-    st.subheader("İhtiyaç Talebi Oluştur")
+    st.markdown('<div class="sechead">İhtiyaç Talebi Oluştur</div>', unsafe_allow_html=True)
+    st.caption("İhtiyacını paylaş, bağışçılar sana ulaşsın.")
     with st.form("need_form", clear_on_submit=True):
-        title = st.text_input("İhtiyaç Başlığı", placeholder="ör. Üniversite hazırlık kitapları")
-        kategori = st.selectbox("Kategori", CATEGORIES, key="nk")
-        adet = st.number_input("Gerekli Adet / Miktar", min_value=1, value=1, step=1)
-        sehir = st.selectbox("Yaşadığınız Şehir", CITIES, key="nc")
-        ilce = st.text_input("İlçe", placeholder="ör. Mamak", key="nd")
-        eden = st.text_input("İsim Soyisim / Adınız", placeholder="ör. Ayşe Y.")
-        phone = st.text_input("İletişim Telefon Numarası", placeholder="ör. 05321234567", key="n_phone")
-        description = st.text_area("İhtiyaç Durumu Hakkında Ek Açıklama", placeholder="ör. Öğrenci yurdunda kalıyorum, eğitim setine ihtiyacım var.", key="n_desc")
-        
-        if st.form_submit_button("Talebi Gönder ve Yayınla") and title and phone:
-            add_need({"title": title, "category": kategori, "quantity": int(adet), "city": sehir, 
-                      "district": ilce or "—", "requester": eden or "Anonim", "phone": phone, 
-                      "description": description or "Açıklama yok."})
-            st.success("İhtiyaç talebiniz başarıyla sisteme yüklendi!")
+        c1, c2 = st.columns(2)
+        title = c1.text_input("İhtiyaç Başlığı", placeholder="ör. Üniversite hazırlık kitapları")
+        kategori = c2.selectbox("Kategori", CATEGORIES, key="nk")
+        adet = c1.number_input("Gerekli Adet", min_value=1, value=1, step=1)
+        sehir = c2.selectbox("Yaşadığın Şehir", CITIES, key="nc")
+        ilce = c1.text_input("İlçe", placeholder="ör. Mamak", key="nd")
+        eden = c2.text_input("İsim Soyisim", placeholder="ör. Ayşe Y.")
+        phone = st.text_input("İletişim Telefonu", placeholder="ör. 05321234567", key="np")
+        description = st.text_area("Açıklama", placeholder="ör. Öğrenci yurdunda kalıyorum, kitap setine ihtiyacım var.", key="ndsc")
+        gonder = st.form_submit_button("Talebi Yayınla")
+        if gonder and title and phone:
+            add_need({"title": title, "category": kategori, "quantity": int(adet), "city": sehir,
+                      "district": ilce or "—", "requester": eden or "Anonim",
+                      "phone": phone, "description": description or "Açıklama yok."})
+            st.success("Talebin başarıyla yayınlandı!")
             st.rerun()
-        elif title and not phone:
-            st.error("Lütfen iletişim sağlanabilmesi için telefon numaranızı giriniz.")
+        elif gonder and not phone:
+            st.error("Lütfen iletişim için telefon numaranı gir.")
 
-    st.write("---")
-    st.subheader("Güncel İhtiyaç Talepleri")
-    
-    filtre_talep = st.selectbox("🔍 Kategoriye Göre Filtrele (Talepler):", ["Hepsi"] + CATEGORIES, key="filter_needs")
-    arama_kelimesi_talep = st.text_input("📝 Kelime ile Ara (Talep İlanlarında):", placeholder="ör. tablet, battaniye, çanta...", key="search_needs_text")
-    
-    tum_talepler = get_needs()
-    for n in tum_talepler:
-        if filtre_talep != "Hepsi" and n["category"] != filtre_talep:
+    st.markdown("---")
+    st.markdown('<div class="sechead">Tüm İhtiyaç Talepleri</div>', unsafe_allow_html=True)
+    f1, f2 = st.columns([1, 2])
+    fk = f1.selectbox("Kategori", ["Hepsi"] + CATEGORIES, key="fn")
+    fs = f2.text_input("İlanlarda ara", placeholder="ör. tablet, battaniye, çanta...", key="sn")
+
+    sonuc = []
+    for n in needs_all:
+        if fk != "Hepsi" and n["category"] != fk:
             continue
-            
-        if arama_kelimesi_talep:
-            talep_metni = (n["title"] + " " + n.get("description", "")).lower()
-            if arama_kelimesi_talep.lower() not in talep_metni:
-                continue
-                
-        t_telefon = n.get("phone", "Belirtilmemiş")
-        t_aciklama = n.get("description", "Açıklama belirtilmemiş.")
-        t_adet = n.get("quantity", 1)
-        
-        with st.expander(f"📦 {n['title']} — Adet: {t_adet} ({n['district']}, {n['city']})"):
-            st.markdown(f"**Kategori:** {n['category']}")
-            st.markdown(f"**Talep Eden:** {n['requester']}")
-            st.info(f"**Talep Detayı / Gerekçe:** {t_aciklama}")
-            st.success(f"📞 **İhtiyaç Sahibine Ulaş:** [{t_telefon}](tel:{t_telefon})")
+        if fs and fs.lower() not in (n["title"] + " " + n.get("description", "")).lower():
+            continue
+        sonuc.append(n)
+    if sonuc:
+        html = "".join(card_html(n["title"], n["category"], "request",
+                                 f"{n['district']}, {n['city']}", n.get("description", ""),
+                                 "Talep eden", n.get("requester", "Anonim"),
+                                 n.get("phone", ""), n.get("quantity", 1)) for n in sonuc)
+        st.markdown(f'<div class="grid">{html}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="empty">Aramana uyan talep bulunamadı.</div>', unsafe_allow_html=True)
