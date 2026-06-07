@@ -1,5 +1,5 @@
 # ============================================================
-#  PAYLAŞ — Dayanışma & Bağış Eşleştirme Uygulaması
+#  PAYLAŞ — Dayanışma & Bağış Platformu
 #  Firebase (Firestore) sürümü — veri bulutta, herkes ortak görür
 # ============================================================
 #  GEREKLİ:
@@ -15,23 +15,28 @@ from firebase_admin import credentials, firestore
 CATEGORIES = ["Giyim", "Mobilya", "Elektronik", "Eğitim / Kırtasiye", "Ev Eşyası", "Çocuk / Oyuncak"]
 CITIES = ["Ankara", "İstanbul", "İzmir", "Bursa", "Antalya"]
 
+
 # --- Firebase bağlantısı -------------------------------------
 @st.cache_resource
 def get_db():
+    """Firebase'e tek sefer bağlanır (JSON dosyasıyla)."""
     if not firebase_admin._apps:
         cred = credentials.Certificate("firebase_key.json")
         firebase_admin.initialize_app(cred)
     return firestore.client()
 
+
 db = get_db()
 
-# --- Veri fonksiyonları --------------------------------------
+
+# --- Veri fonksiyonları (Firestore) --------------------------
 def add_item(d):
     db.collection("items").add({
         **d,
         "date": date.today().isoformat(),
         "created": datetime.utcnow().isoformat(),
     })
+
 
 def add_need(d):
     db.collection("needs").add({
@@ -40,114 +45,102 @@ def add_need(d):
         "created": datetime.utcnow().isoformat(),
     })
 
+
 def get_items():
     rows = [{**doc.to_dict(), "id": doc.id} for doc in db.collection("items").stream()]
     rows.sort(key=lambda r: r.get("created", ""), reverse=True)
     return rows
+
 
 def get_needs():
     rows = [{**doc.to_dict(), "id": doc.id} for doc in db.collection("needs").stream()]
     rows.sort(key=lambda r: r.get("created", ""), reverse=True)
     return rows
 
-# --- EŞLEŞTİRME ALGORİTMASI ----------------------------------
-def score_match(need, item):
-    W = {"category": 50, "location": 40, "wait": 10}  
-    reasons = []
-
-    if need["category"] == item["category"]:
-        cat = 1.0
-        reasons.append("✓ Kategori eşleşmesi")
-    else:
-        cat = 0.0
-        reasons.append("• Kategori uyuşmuyor")
-
-    if need["city"] == item["city"] and need["district"] == item["district"]:
-        loc = 1.0
-        reasons.append("✓ Aynı ilçe (Elden teslim)")
-    elif need["city"] == item["city"]:
-        loc = 0.7
-        reasons.append("✓ Aynı şehir")
-    else:
-        loc = 0.2
-        reasons.append("• Farklı şehir (Kargo gerekli)")
-
-    days = (date.today() - date.fromisoformat(need["date"])).days
-    wait = min(days / 14, 1.0)
-    if days >= 5:
-        reasons.append(f"✓ {days} gündür bekleyen öncelikli talep")
-
-    score = cat * W["category"] + loc * W["location"] + wait * W["wait"]
-    return round(score), reasons
-
 
 # ============================================================
-#  ARAYÜZ
+#  ARAYÜZ VE GÖRSEL TASARIM (CSS Geliştirmeleri Yapıldı)
 # ============================================================
-st.set_page_config(page_title="Paylaş", page_icon="🤝", layout="centered")
+st.set_page_config(page_title="Paylaş", page_icon="🤝", layout="wide")
 
-st.title("🤝 Paylaş")
-st.caption("İhtiyaç fazlasını, ihtiyaç sahibiyle buluşturan ücretsiz dayanışma platformu.")
-
-tab_match, tab_items, tab_needs = st.tabs(["⚡ Akıllı Eşleştirme Asistanı", "🎁 Bağış Havuzu", "📦 Talep Havuzu"])
-
-# --- Sekme 1: YENİDEN TASARLANAN EŞLEŞTİRME MOTORU -------------
-with tab_match:
-    st.info("💡 **Sistem Analiz Paneli:** Bu ekran, arka planda çalışan eşleştirme algoritmasını test etmek için tasarlanmıştır. Sistem; seçilen talebi analiz eder, bağış havuzunu tarar ve lojistik/kategori uyumuna göre bir skorlama çıkararak en doğru eşleşmeleri önerir.")
+# Uygulamanın modern görünmesi için özel CSS enjeksiyonu
+st.markdown("""
+    <style>
+    /* Genel Arka Plan ve Kart Güzelleştirmeleri */
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] {
+        padding: 10px 20px;
+        background-color: #F3F4F6;
+        border-radius: 8px 8px 0px 0px;
+        font-weight: bold;
+    }
+    .stTabs [aria-selected="true"] { 
+        background-color: #4F46E5 !important; 
+        color: white !important;
+    }
     
-    needs = get_needs()
-    items = get_items()
+    /* Detay Kutusu Özelleştirmeleri */
+    .detail-box {
+        padding: 12px;
+        border-left: 4px solid #4F46E5;
+        background-color: #F9FAFB;
+        border-radius: 4px;
+        margin-bottom: 10px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown("<h1 style='text-align: center; color: #4F46E5; margin-bottom: 0px;'>🤝 PAYLAŞ</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #6B7280; font-size: 1.1rem;'>İhtiyaç fazlasını, ihtiyaç sahibiyle buluşturan ücretsiz dayanışma platformu.</p>", unsafe_allow_html=True)
+st.markdown("---")
+
+tab_home, tab_items, tab_needs = st.tabs(["🏠 Ana Sayfa (Canlı Akış)", "🎁 Bağış Havuzu", "📦 Talep Havuzu"])
+
+# --- Sekme 1: YENİ ANA SAYFA (Büyük Yan Yana Liste) ------------
+with tab_home:
+    st.markdown("<p style='text-align: center; color: #9CA3AF;'>Sistemdeki tüm aktif ilanların anlık akışı. Detaylar ve iletişim için ilanlara tıklayın.</p>", unsafe_allow_html=True)
     
-    if not needs:
-        st.warning("Eşleştirme yapabilmek için önce 'Talep Havuzu'ndan bir ihtiyaç eklemelisiniz.")
-    elif not items:
-        st.warning("Eşleştirme yapabilmek için önce 'Bağış Havuzu'na eşya eklemelisiniz.")
-    else:
-        st.write("---")
-        labels = [f"{n['title']} (Şehir: {n['city']})" for n in needs]
-        idx = st.selectbox("🎯 Algoritmanın analiz edeceği İhtiyaç Talebini seçin:", range(len(needs)), format_func=lambda i: labels[i])
-        secili = needs[idx]
+    # Sayfayı iki büyük kolona bölüyoruz: Bağışlar (Yeşil) - Talepler (Kırmızı)
+    col_bagis, col_talep = st.columns(2)
+    
+    # SOL TARAF: BAĞIŞLAR (YEŞİL)
+    with col_bagis:
+        st.markdown("<div style='background-color: #10B981; padding: 12px; border-radius: 8px; margin-bottom: 15px;'><h2 style='color: white; text-align: center; margin: 0;'>🟢 BAĞIŞLAR</h2></div>", unsafe_allow_html=True)
         
-        # Seçilen Talebin Şık Metrik Kartları
-        st.markdown("#### 📌 İncelenen Talebin Parametreleri")
-        bekleme_suresi = (date.today() - date.fromisoformat(secili['date'])).days
-        
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Aranan Kategori", secili['category'])
-        col2.metric("Talep Konumu", f"{secili.get('district', '')}, {secili['city']}")
-        col3.metric("Bekleme Süresi", f"{bekleme_suresi} Gün")
-        
-        st.write("---")
-        st.markdown("#### 🔍 Algoritma Önerileri (En Yüksek Skordan Düşüğe)")
-
-        eslesmeler = sorted(
-            [(it, *score_match(secili, it)) for it in items],
-            key=lambda x: x[1], reverse=True
-        )
-        
-        # Eşleşmeleri görsel çubuklar ve skorlarla listeleme
-        for it, puan, gerekceler in eslesmeler:
-            with st.container(border=True):
-                # Ekranı ikiye bölüyoruz (Sol: Skor, Sağ: Detaylar)
-                score_col, detail_col = st.columns([1, 3])
+        items = get_items()
+        if not items:
+            st.info("Henüz bağışlanan bir eşya yok.")
+        else:
+            for it in items:
+                telefon_no = it.get("phone", "Belirtilmemiş")
+                ek_aciklama = it.get("description", "Açıklama belirtilmemiş.")
                 
-                with score_col:
-                    # Puana göre renk belirleme (Yeşil, Sarı, Kırmızı)
-                    renk = "#10B981" if puan >= 70 else "#F59E0B" if puan >= 40 else "#EF4444"
-                    st.markdown(f"<h2 style='text-align: center; color: {renk}; margin-bottom: 0px;'>%{puan}</h2>", unsafe_allow_html=True)
-                    st.progress(puan / 100)
-                
-                with detail_col:
-                    st.markdown(f"**🎁 İlan:** {it['title']}")
-                    st.caption(f"**Kategori:** {it['category']} | **Konum:** {it['district']}, {it['city']} | **Durum:** {it['condition']}")
-                    
-                    # Gerekçeleri daha okunaklı formatta yazma
-                    st.markdown(f"*{'  •  '.join(gerekceler)}*")
-                    
-                    telefon_no = it.get("phone", "Belirtilmemiş")
-                    st.markdown(f"📞 [Bağışçıyla İletişime Geç ({it['donor']})](tel:{telefon_no})")
+                # Tıklanabilir Bağış Kartı
+                with st.expander(f"🎁 {it['title']} ({it['district']}, {it['city']})"):
+                    st.markdown(f"<div class='detail-box'><b>Kategori:</b> {it['category']}<br><b>Eşya Durumu:</b> {it['condition']}<br><b>Bağışçı:</b> {it['donor']}</div>", unsafe_allow_html=True)
+                    st.write(f"📝 **Ek Bilgi:** {ek_aciklama}")
+                    st.success(f"📞 **Bağışçı Telefonu:** [{telefon_no}](tel:{telefon_no})")
 
-# --- Sekme 2: BAĞIŞ HAVUZU -------------------------------------
+    # SAĞ TARAF: TALEPLER (KIRMIZI)
+    with col_talep:
+        st.markdown("<div style='background-color: #EF4444; padding: 12px; border-radius: 8px; margin-bottom: 15px;'><h2 style='color: white; text-align: center; margin: 0;'>🔴 TALEPLER</h2></div>", unsafe_allow_html=True)
+        
+        needs = get_needs()
+        if not needs:
+            st.info("Henüz oluşturulmuş bir ihtiyaç talebi yok.")
+        else:
+            for n in needs:
+                t_telefon = n.get("phone", "Belirtilmemiş")
+                t_aciklama = n.get("description", "Açıklama belirtilmemiş.")
+                t_adet = n.get("quantity", 1)
+                
+                # Tıklanabilir Talep Kartı
+                with st.expander(f"📦 {n['title']} — Adet: {t_adet} ({n['district']}, {n['city']})"):
+                    st.markdown(f"<div class='detail-box'><b>Kategori:</b> {n['category']}<br><b>Talep Eden:</b> {n['requester']}</div>", unsafe_allow_html=True)
+                    st.write(f"📝 **İhtiyaç Gerekçesi:** {t_aciklama}")
+                    st.error(f"📞 **İhtiyaç Sahibi Telefonu:** [{t_telefon}](tel:{t_telefon})")
+
+# --- Sekme 2: BAĞIŞ HAVUZU (Ekleme ve Filtreleme) --------------
 with tab_items:
     st.subheader("Eşya Paylaş")
     with st.form("item_form", clear_on_submit=True):
@@ -194,7 +187,7 @@ with tab_items:
             st.info(f"**Ek Ürün Bilgisi:** {ek_aciklama}")
             st.success(f"📞 **İletişim Numarası:** [{telefon_no}](tel:{telefon_no})")
 
-# --- Sekme 3: TALEP HAVUZU -------------------------------------
+# --- Sekme 3: TALEP HAVUZU (Ekleme ve Filtreleme) --------------
 with tab_needs:
     st.subheader("İhtiyaç Talebi Oluştur")
     with st.form("need_form", clear_on_submit=True):
