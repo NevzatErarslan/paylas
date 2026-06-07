@@ -16,7 +16,8 @@ from firebase_admin import credentials, firestore
 # --- Sabitler -------------------------------------------------
 CATEGORIES = ["Giyim", "Mobilya", "Elektronik", "Eğitim / Kırtasiye",
               "Ev Eşyası", "Çocuk / Oyuncak"]
-CITIES = ["Ankara", "İstanbul", "İzmir", "Bursa", "Antalya"]
+from il_ilce import PROVINCES, DISTRICTS  # 81 il + ilçeleri
+MANUEL = "✏️ Diğer (elle yaz)"
 
 
 # --- Firebase bağlantısı -------------------------------------
@@ -194,6 +195,30 @@ a.contactbtn:hover{ filter:brightness(.94); color:#fff!important; }
 """, unsafe_allow_html=True)
 
 
+# --- ŞEHİR + İLÇE seçici (ilçeler şehre göre, elle yazma seçenekli) ---
+def sehir_ilce_sec(prefix):
+    """Önce Şehir, hemen altında İlçe. İkisinde de 'elle yaz' seçeneği var."""
+    sehir_sel = st.selectbox("Şehir", PROVINCES + [MANUEL], key=f"{prefix}_city")
+    # şehir değişince ilçe seçimini sıfırla (eski ilçe yeni ilde olmayabilir)
+    if st.session_state.get(f"{prefix}_lastcity") != sehir_sel:
+        st.session_state[f"{prefix}_lastcity"] = sehir_sel
+        st.session_state.pop(f"{prefix}_dist", None)
+
+    if sehir_sel == MANUEL:
+        sehir = st.text_input("Şehir (elle yaz)", key=f"{prefix}_city_manual", placeholder="Şehir adı")
+        ilce_opts = [MANUEL]
+    else:
+        sehir = sehir_sel
+        ilce_opts = DISTRICTS.get(sehir_sel, []) + [MANUEL]
+
+    ilce_sel = st.selectbox("İlçe", ilce_opts, key=f"{prefix}_dist")
+    if ilce_sel == MANUEL:
+        ilce = st.text_input("İlçe (elle yaz)", key=f"{prefix}_dist_manual", placeholder="İlçe adı")
+    else:
+        ilce = ilce_sel
+    return sehir, ilce
+
+
 # --- TEK BİR KART ÇİZER (içerik + iletişim popover) -----------
 def render_card(d, kind):
     cat = d.get("category", "—")
@@ -287,7 +312,8 @@ with tab_items:
     st.markdown('<div class="sechead">Eşya Paylaş</div>', unsafe_allow_html=True)
     st.caption("İhtiyaç fazlası eşyanı paylaş, ihtiyaç sahibine ulaşsın.")
     if st.session_state.pop("i_done", False):
-        for _k in ["i_title", "i_ilce", "i_bagisci", "i_phone", "i_email", "i_desc"]:
+        for _k in ["i_title", "i_bagisci", "i_phone", "i_email", "i_desc",
+                   "i_city", "i_city_manual", "i_dist", "i_dist_manual", "i_lastcity"]:
             st.session_state.pop(_k, None)
         st.success("Bağış ilanın başarıyla yayınlandı! 🎉")
 
@@ -295,9 +321,8 @@ with tab_items:
     title = c1.text_input("Eşya Başlığı", key="i_title", placeholder="ör. Kışlık çocuk montu")
     kategori = c2.selectbox("Kategori", CATEGORIES, key="i_kat")
     durum = c1.selectbox("Eşyanın Durumu", ["Yeni Gibi", "Çok İyi", "İyi", "Orta"], key="i_durum")
-    sehir = c2.selectbox("Bulunduğu Şehir", CITIES, key="i_sehir")
-    ilce = c1.text_input("İlçe", key="i_ilce", placeholder="ör. Çankaya")
     bagisci = c2.text_input("İsim Soyisim", key="i_bagisci", placeholder="ör. Elif K.")
+    sehir, ilce = sehir_ilce_sec("i")
     yontem_i = st.selectbox("İletişim", ["📞 Telefon", "✉️ E-posta"], key="i_yontem")
     if yontem_i.startswith("📞"):
         phone = st.text_input("Telefon numaranız", key="i_phone", placeholder="ör. 05551234567")
@@ -308,7 +333,7 @@ with tab_items:
     description = st.text_area("Açıklama", key="i_desc", placeholder="ör. Yırtığı yoktur, temiz durumdadır.")
     if st.button("Bağış İlanını Yayınla", key="i_submit"):
         if title and (phone or email):
-            add_item({"title": title, "category": kategori, "condition": durum, "city": sehir,
+            add_item({"title": title, "category": kategori, "condition": durum, "city": sehir or "—",
                       "district": ilce or "—", "donor": bagisci or "Anonim",
                       "phone": phone, "email": email, "description": description or "Açıklama yok."})
             st.session_state["i_done"] = True
@@ -337,7 +362,8 @@ with tab_needs:
     st.markdown('<div class="sechead">İhtiyaç Talebi Oluştur</div>', unsafe_allow_html=True)
     st.caption("İhtiyacını paylaş, bağışçılar sana ulaşsın.")
     if st.session_state.pop("n_done", False):
-        for _k in ["n_title", "n_ilce", "n_eden", "n_phone", "n_email", "n_desc", "n_adet"]:
+        for _k in ["n_title", "n_eden", "n_phone", "n_email", "n_desc", "n_adet",
+                   "n_city", "n_city_manual", "n_dist", "n_dist_manual", "n_lastcity"]:
             st.session_state.pop(_k, None)
         st.success("Talebin başarıyla yayınlandı! 🎉")
 
@@ -345,9 +371,8 @@ with tab_needs:
     title = c1.text_input("İhtiyaç Başlığı", key="n_title", placeholder="ör. Üniversite hazırlık kitapları")
     kategori = c2.selectbox("Kategori", CATEGORIES, key="n_kat")
     adet = c1.number_input("Gerekli Adet", min_value=1, value=1, step=1, key="n_adet")
-    sehir = c2.selectbox("Yaşadığın Şehir", CITIES, key="n_sehir")
-    ilce = c1.text_input("İlçe", key="n_ilce", placeholder="ör. Mamak")
     eden = c2.text_input("İsim Soyisim", key="n_eden", placeholder="ör. Ayşe Y.")
+    sehir, ilce = sehir_ilce_sec("n")
     yontem_n = st.selectbox("İletişim", ["📞 Telefon", "✉️ E-posta"], key="n_yontem")
     if yontem_n.startswith("📞"):
         phone = st.text_input("Telefon numaranız", key="n_phone", placeholder="ör. 05321234567")
@@ -358,7 +383,7 @@ with tab_needs:
     description = st.text_area("Açıklama", key="n_desc", placeholder="ör. Öğrenci yurdunda kalıyorum, kitap setine ihtiyacım var.")
     if st.button("Talebi Yayınla", key="n_submit"):
         if title and (phone or email):
-            add_need({"title": title, "category": kategori, "quantity": int(adet), "city": sehir,
+            add_need({"title": title, "category": kategori, "quantity": int(adet), "city": sehir or "—",
                       "district": ilce or "—", "requester": eden or "Anonim",
                       "phone": phone, "email": email, "description": description or "Açıklama yok."})
             st.session_state["n_done"] = True
