@@ -298,13 +298,13 @@ with tab_items:
     sehir = c2.selectbox("Bulunduğu Şehir", CITIES, key="i_sehir")
     ilce = c1.text_input("İlçe", key="i_ilce", placeholder="ör. Çankaya")
     bagisci = c2.text_input("İsim Soyisim", key="i_bagisci", placeholder="ör. Elif K.")
-    yontem_i = c1.selectbox("İletişim", ["📞 Telefon", "✉️ E-posta"], key="i_yontem")
+    yontem_i = st.selectbox("İletişim", ["📞 Telefon", "✉️ E-posta"], key="i_yontem")
     if yontem_i.startswith("📞"):
-        phone = c2.text_input("Telefon numaranız", key="i_phone", placeholder="ör. 05551234567")
+        phone = st.text_input("Telefon numaranız", key="i_phone", placeholder="ör. 05551234567")
         email = ""
     else:
         phone = ""
-        email = c2.text_input("E-posta adresiniz", key="i_email", placeholder="ör. ornek@mail.com")
+        email = st.text_input("E-posta adresiniz", key="i_email", placeholder="ör. ornek@mail.com")
     description = st.text_area("Açıklama", key="i_desc", placeholder="ör. Yırtığı yoktur, temiz durumdadır.")
     if st.button("Bağış İlanını Yayınla", key="i_submit"):
         if title and (phone or email):
@@ -348,13 +348,13 @@ with tab_needs:
     sehir = c2.selectbox("Yaşadığın Şehir", CITIES, key="n_sehir")
     ilce = c1.text_input("İlçe", key="n_ilce", placeholder="ör. Mamak")
     eden = c2.text_input("İsim Soyisim", key="n_eden", placeholder="ör. Ayşe Y.")
-    yontem_n = c1.selectbox("İletişim", ["📞 Telefon", "✉️ E-posta"], key="n_yontem")
+    yontem_n = st.selectbox("İletişim", ["📞 Telefon", "✉️ E-posta"], key="n_yontem")
     if yontem_n.startswith("📞"):
-        phone = c2.text_input("Telefon numaranız", key="n_phone", placeholder="ör. 05321234567")
+        phone = st.text_input("Telefon numaranız", key="n_phone", placeholder="ör. 05321234567")
         email = ""
     else:
         phone = ""
-        email = c2.text_input("E-posta adresiniz", key="n_email", placeholder="ör. ornek@mail.com")
+        email = st.text_input("E-posta adresiniz", key="n_email", placeholder="ör. ornek@mail.com")
     description = st.text_area("Açıklama", key="n_desc", placeholder="ör. Öğrenci yurdunda kalıyorum, kitap setine ihtiyacım var.")
     if st.button("Talebi Yayınla", key="n_submit"):
         if title and (phone or email):
