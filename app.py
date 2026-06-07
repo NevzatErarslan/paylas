@@ -4,7 +4,6 @@
 # ============================================================
 #  GEREKLİ:
 #    pip install streamlit firebase-admin
-#  Firebase kurulumu ve secrets ayarı için yanındaki rehbere bak.
 # ============================================================
 
 from datetime import date, datetime
@@ -27,12 +26,9 @@ URGENCY = {"Düşük": 1, "Orta": 2, "Yüksek": 3, "Acil": 4}
 # --- Firebase bağlantısı -------------------------------------
 @st.cache_resource
 def get_db():
-    """Firebase'e tek sefer bağlanır (secrets içindeki bilgilerle)."""
+    """Firebase'e tek sefer bağlanır (JSON dosyasıyla)."""
     if not firebase_admin._apps:
-        info = dict(st.secrets["firebase"])
-        # private_key bazen tek satıra sıkışır; satır sonlarını düzelt
-        info["private_key"] = info["private_key"].replace("\\n", "\n")
-        cred = credentials.Certificate(info)
+        cred = credentials.Certificate("firebase_key.json")
         firebase_admin.initialize_app(cred)
     return firestore.client()
 
@@ -69,7 +65,7 @@ def get_needs():
     return rows
 
 
-# --- EŞLEŞTİRME ALGORİTMASI (projenin kalbi) -----------------
+# --- EŞLEŞTİRME ALGORİTMASI ---------------------------------
 def score_match(need, item):
     """Bir talep ile bir eşya arasında 0-100 uygunluk puanı + gerekçe üretir."""
     W = {"category": 40, "location": 30, "urgency": 20, "wait": 10}  # ağırlıklar
@@ -102,9 +98,9 @@ def score_match(need, item):
     if URGENCY.get(need["urgency"], 1) >= 3:
         reasons.append(f"✓ Yüksek öncelik: {need['urgency']}")
 
-    # 4) Bekleme süresi (eski talep yukarı çıkar)
+    # 4) Bekleme süresi
     days = (date.today() - date.fromisoformat(need["date"])).days
-    wait = min(days / 14, 1.0)  # 14 günde tavan
+    wait = min(days / 14, 1.0)
     if days >= 5:
         reasons.append(f"✓ {days} gündür bekliyor")
 
@@ -132,7 +128,7 @@ with tab_match:
         labels = [f"{n['title']} ({n['sub']} · {n['city']} · {n['urgency']})" for n in needs]
         idx = st.selectbox("Bir talep seç:", range(len(needs)), format_func=lambda i: labels[i])
         secili = needs[idx]
-        st.write("Bu talebe en uygun eşyalar (puana göre sıralı):")
+        st.write("Bu talebe en uygun eşyalar (Tıklayarak detayları ve telefonu görebilirsiniz):")
 
         if not items:
             st.info("Henüz bağış yok. 'Bağışlar' sekmesinden eşya ekle.")
@@ -142,11 +138,19 @@ with tab_match:
                 key=lambda x: x[1], reverse=True
             )
             for it, puan, gerekceler in eslesmeler:
-                with st.container(border=True):
-                    c1, c2 = st.columns([1, 4])
-                    c1.metric("Uygunluk", puan)
-                    c2.markdown(f"**{it['title']}**  \n{it['sub']} · {it['condition']} · {it['district']}, {it['city']}")
-                    c2.caption("  ".join(gerekceler))
+                # Güvenli veri çekme (eski kayıtlar için hata önleme)
+                telefon_no = it.get("phone", "Belirtilmemiş")
+                ek_aciklama = it.get("description", "Açıklama belirtilmemiş.")
+                
+                # Kart başlığı ve puan bilgisi
+                kart_basligi = f"🎯 Uygunluk: %{puan} — {it['title']} ({it['district']}, {it['city']})"
+                
+                with st.expander(kart_basligi):
+                    st.markdown(f"**Alt Tür:** {it['sub']}  |  **Durum:** {it['condition']}")
+                    st.markdown(f"**Bağışçı:** {it['donor']}")
+                    st.info(f"**Ek Ürün Bilgisi:** {ek_aciklama}")
+                    st.success(f"📞 **İletişim (Telefon):** [{telefon_no}](tel:{telefon_no})")
+                    st.caption("  |  ".join(gerekceler))
 
 # --- Sekme 2: BAĞIŞLAR ---------------------------------------
 with tab_items:
@@ -159,18 +163,40 @@ with tab_items:
         sehir = st.selectbox("Şehir", CITIES)
         ilce = st.text_input("İlçe", placeholder="ör. Çankaya")
         bagisci = st.text_input("Bağışçı adı", placeholder="ör. Elif K.")
-        if st.form_submit_button("Bağışı yayınla") and title:
-            add_item({"title": title, "category": kategori, "sub": alt,
-                      "condition": durum, "city": sehir,
-                      "district": ilce or "—", "donor": bagisci or "Anonim"})
-            st.success("Bağış eklendi!")
+        
+        # YENİ EKLENEN ALANLAR
+        phone = st.text_input("Telefon Numarası", placeholder="ör. 05551234567")
+        description = st.text_area("Ek Ürün Bilgileri / Açıklama", placeholder="ör. Ürünün defosu yoktur, temiz yıkanmıştır.")
+        
+        if st.form_submit_button("Bağışı yayınla") and title and phone:
+            add_item({
+                "title": title, 
+                "category": kategori, 
+                "sub": alt,
+                "condition": durum, 
+                "city": sehir,
+                "district": ilce or "—", 
+                "donor": bagisci or "Anonim",
+                "phone": phone,            # Veritabanına yeni alanlar ekleniyor
+                "description": description or "Açıklama yok."
+            })
+            st.success("Bağış başarıyla eklendi!")
             st.rerun()
+        elif title and not phone:
+            st.error("Lütfen iletişim için telefon numaranızı girin.")
 
-    st.subheader("Yüklenen bağışlar")
+    st.subheader("Yüklenen bağışlar (Detaylar için tıklayın)")
     for it in get_items():
-        with st.container(border=True):
-            st.markdown(f"**{it['title']}** — {it['category']} / {it['sub']} · durum: {it['condition']}")
-            st.caption(f"📍 {it['district']}, {it['city']}  ·  Bağışçı: {it['donor']}")
+        telefon_no = it.get("phone", "Belirtilmemiş")
+        ek_aciklama = it.get("description", "Açıklama belirtilmemiş.")
+        
+        # Tıklanabilir liste elemanı
+        with st.expander(f"🎁 {it['title']} — {it['district']}, {it['city']}"):
+            st.markdown(f"**Kategori:** {it['category']} / {it['sub']}")
+            st.markdown(f"**Eşya Durumu:** {it['condition']}")
+            st.markdown(f"**Bağışçı:** {it['donor']}")
+            st.info(f"**Ek Ürün Bilgisi:** {ek_aciklama}")
+            st.success(f"📞 **İletişim (Telefon):** [{telefon_no}](tel:{telefon_no})")
 
 # --- Sekme 3: TALEPLER ---------------------------------------
 with tab_needs:
