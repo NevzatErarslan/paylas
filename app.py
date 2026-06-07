@@ -294,11 +294,9 @@ tab_home, tab_items, tab_needs = st.tabs(
 # --- Sekme 1: CANLI AKIŞ -------------------------------------
 with tab_home:
     # — Arama / filtre çubuğu —
-    sehirler_mevcut = sorted({d.get("city", "") for d in (items_all + needs_all)
-                              if d.get("city", "") and d.get("city") != "—"})
     fc1, fc2, fc3 = st.columns([1, 1, 2])
     f_kat = fc1.selectbox("Kategori", ["Tüm Kategoriler"] + CATEGORIES, key="home_kat")
-    f_sehir = fc2.selectbox("Şehir", ["Tüm Şehirler"] + sehirler_mevcut, key="home_city")
+    f_sehir = fc2.selectbox("Şehir", ["Tüm Şehirler"] + PROVINCES, key="home_city")
     f_ara = fc3.text_input("İlanlarda ara", placeholder="ör. mont, kitap, battaniye...", key="home_search")
 
     def _uyar(d):
