@@ -8,6 +8,7 @@
 # ============================================================
 
 from datetime import date, datetime
+from urllib.parse import quote
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -173,6 +174,13 @@ div[data-baseweb="popover"] [data-testid="stPopoverBody"],
 
 .sechead{ font-family:'Fraunces',serif; font-size:1.5rem; font-weight:600; color:var(--green); margin:4px 0 2px; }
 hr{ border-color:var(--line); }
+
+/* iletişim düğmeleri (popover içinde, HTML link) */
+a.contactbtn{ display:block; text-align:center; text-decoration:none; color:#fff!important;
+  border-radius:10px; padding:10px 14px; font-weight:700; margin-top:6px; }
+a.contactbtn.wa{ background:#25D366; }
+a.contactbtn.mail{ background:#2C6BB0; }
+a.contactbtn:hover{ filter:brightness(.94); color:#fff!important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -185,6 +193,9 @@ def render_card(d, kind):
     desc = (d.get("description", "") or "").strip()
     desc = (desc[:120] + "…") if len(desc) > 120 else (desc or "Açıklama eklenmemiş.")
     phone = d.get("phone", "")
+    email = d.get("email", "")
+    has_phone = phone and str(phone) not in ("", "Belirtilmemiş", "Açıklama yok.")
+    has_email = email and str(email) not in ("", "Belirtilmemiş", "Açıklama yok.")
     bcls = "donation" if kind == "donation" else "request"
     if kind == "donation":
         person_label, person = "Bağışçı", d.get("donor", "Anonim")
@@ -203,15 +214,25 @@ def render_card(d, kind):
             f'<div class="lperson">{person_label}: <b>{person}</b></div>',
             unsafe_allow_html=True)
 
-        with st.popover("📞 İletişime Geç", use_container_width=True):
-            if phone and str(phone) not in ("", "Belirtilmemiş", "Açıklama yok."):
+        btn_label = "📞 İletişime Geç" if has_phone else ("✉️ İletişime Geç" if has_email else "İletişim")
+        with st.popover(btn_label, use_container_width=True):
+            if has_phone:
                 st.markdown(f"**{person}** ile iletişim:")
                 st.code(phone, language=None)          # kopyalama düğmesi hazır gelir
-                st.caption("Numaranın sağ üstündeki simgeyle kopyalayabilirsin.")
-                st.link_button("💬 WhatsApp'tan Yaz", whatsapp_url(phone),
-                               use_container_width=True)
+                st.caption("Sağ üstteki simgeyle kopyalayabilirsin.")
+                st.markdown(
+                    f'<a class="contactbtn wa" href="{whatsapp_url(phone)}" target="_blank">'
+                    f'💬 WhatsApp\'tan Yaz</a>', unsafe_allow_html=True)
+            elif has_email:
+                konu = quote(f"Paylaş ilanı: {title}")
+                st.markdown(f"**{person}** ile iletişim:")
+                st.code(email, language=None)          # kopyalama düğmesi hazır gelir
+                st.caption("Sağ üstteki simgeyle kopyalayabilirsin.")
+                st.markdown(
+                    f'<a class="contactbtn mail" href="mailto:{email}?subject={konu}">'
+                    f'📧 E-posta Gönder</a>', unsafe_allow_html=True)
             else:
-                st.caption("Bu ilanda iletişim numarası belirtilmemiş.")
+                st.caption("Bu ilanda iletişim bilgisi belirtilmemiş.")
 
 
 # --- HERO + İSTATİSTİK ---------------------------------------
@@ -256,6 +277,8 @@ with tab_home:
 with tab_items:
     st.markdown('<div class="sechead">Eşya Paylaş</div>', unsafe_allow_html=True)
     st.caption("İhtiyaç fazlası eşyanı paylaş, ihtiyaç sahibine ulaşsın.")
+    yontem_i = st.radio("İletişim yöntemi", ["📞 Telefon numarası", "✉️ E-posta (telefonumu paylaşmak istemiyorum)"],
+                        horizontal=True, key="yontem_item")
     with st.form("item_form", clear_on_submit=True):
         c1, c2 = st.columns(2)
         title = c1.text_input("Eşya Başlığı", placeholder="ör. Kışlık çocuk montu")
@@ -264,17 +287,22 @@ with tab_items:
         sehir = c2.selectbox("Bulunduğu Şehir", CITIES)
         ilce = c1.text_input("İlçe", placeholder="ör. Çankaya")
         bagisci = c2.text_input("İsim Soyisim", placeholder="ör. Elif K.")
-        phone = st.text_input("İletişim Telefonu", placeholder="ör. 05551234567")
+        if yontem_i.startswith("📞"):
+            phone = st.text_input("İletişim Telefonu", placeholder="ör. 05551234567")
+            email = ""
+        else:
+            email = st.text_input("İletişim E-postası", placeholder="ör. ornek@mail.com")
+            phone = ""
         description = st.text_area("Açıklama", placeholder="ör. Yırtığı yoktur, temiz durumdadır.")
         gonder = st.form_submit_button("Bağış İlanını Yayınla")
-        if gonder and title and phone:
+        if gonder and title and (phone or email):
             add_item({"title": title, "category": kategori, "condition": durum, "city": sehir,
                       "district": ilce or "—", "donor": bagisci or "Anonim",
-                      "phone": phone, "description": description or "Açıklama yok."})
+                      "phone": phone, "email": email, "description": description or "Açıklama yok."})
             st.success("Bağış ilanın başarıyla yayınlandı!")
             st.rerun()
-        elif gonder and not phone:
-            st.error("Lütfen iletişim için telefon numaranı gir.")
+        elif gonder and not (phone or email):
+            st.error("Lütfen iletişim için telefon ya da e-posta bilgisi gir.")
 
     st.markdown("---")
     st.markdown('<div class="sechead">Tüm Bağış İlanları</div>', unsafe_allow_html=True)
@@ -296,6 +324,8 @@ with tab_items:
 with tab_needs:
     st.markdown('<div class="sechead">İhtiyaç Talebi Oluştur</div>', unsafe_allow_html=True)
     st.caption("İhtiyacını paylaş, bağışçılar sana ulaşsın.")
+    yontem_n = st.radio("İletişim yöntemi", ["📞 Telefon numarası", "✉️ E-posta (telefonumu paylaşmak istemiyorum)"],
+                        horizontal=True, key="yontem_need")
     with st.form("need_form", clear_on_submit=True):
         c1, c2 = st.columns(2)
         title = c1.text_input("İhtiyaç Başlığı", placeholder="ör. Üniversite hazırlık kitapları")
@@ -304,17 +334,22 @@ with tab_needs:
         sehir = c2.selectbox("Yaşadığın Şehir", CITIES, key="nc")
         ilce = c1.text_input("İlçe", placeholder="ör. Mamak", key="nd")
         eden = c2.text_input("İsim Soyisim", placeholder="ör. Ayşe Y.")
-        phone = st.text_input("İletişim Telefonu", placeholder="ör. 05321234567", key="np")
+        if yontem_n.startswith("📞"):
+            phone = st.text_input("İletişim Telefonu", placeholder="ör. 05321234567", key="np")
+            email = ""
+        else:
+            email = st.text_input("İletişim E-postası", placeholder="ör. ornek@mail.com", key="nem")
+            phone = ""
         description = st.text_area("Açıklama", placeholder="ör. Öğrenci yurdunda kalıyorum, kitap setine ihtiyacım var.", key="ndsc")
         gonder = st.form_submit_button("Talebi Yayınla")
-        if gonder and title and phone:
+        if gonder and title and (phone or email):
             add_need({"title": title, "category": kategori, "quantity": int(adet), "city": sehir,
                       "district": ilce or "—", "requester": eden or "Anonim",
-                      "phone": phone, "description": description or "Açıklama yok."})
+                      "phone": phone, "email": email, "description": description or "Açıklama yok."})
             st.success("Talebin başarıyla yayınlandı!")
             st.rerun()
-        elif gonder and not phone:
-            st.error("Lütfen iletişim için telefon numaranı gir.")
+        elif gonder and not (phone or email):
+            st.error("Lütfen iletişim için telefon ya da e-posta bilgisi gir.")
 
     st.markdown("---")
     st.markdown('<div class="sechead">Tüm İhtiyaç Talepleri</div>', unsafe_allow_html=True)
