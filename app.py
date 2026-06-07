@@ -293,18 +293,39 @@ tab_home, tab_items, tab_needs = st.tabs(
 
 # --- Sekme 1: CANLI AKIŞ -------------------------------------
 with tab_home:
+    # — Arama / filtre çubuğu —
+    sehirler_mevcut = sorted({d.get("city", "") for d in (items_all + needs_all)
+                              if d.get("city", "") and d.get("city") != "—"})
+    fc1, fc2, fc3 = st.columns([1, 1, 2])
+    f_kat = fc1.selectbox("Kategori", ["Tüm Kategoriler"] + CATEGORIES, key="home_kat")
+    f_sehir = fc2.selectbox("Şehir", ["Tüm Şehirler"] + sehirler_mevcut, key="home_city")
+    f_ara = fc3.text_input("İlanlarda ara", placeholder="ör. mont, kitap, battaniye...", key="home_search")
+
+    def _uyar(d):
+        if f_kat != "Tüm Kategoriler" and d.get("category") != f_kat:
+            return False
+        if f_sehir != "Tüm Şehirler" and d.get("city") != f_sehir:
+            return False
+        if f_ara and f_ara.lower() not in (d.get("title", "") + " " + d.get("description", "")).lower():
+            return False
+        return True
+
+    items_f = [it for it in items_all if _uyar(it)]
+    needs_f = [n for n in needs_all if _uyar(n)]
+
+    st.write("")
     col_g, col_n = st.columns(2, gap="large")
     with col_g:
         st.markdown('<div class="colhead give">🟢 Bağışlanan Eşyalar</div>', unsafe_allow_html=True)
-        if not items_all:
-            st.markdown('<div class="empty">Henüz bağışlanan bir eşya yok.<br>İlk paylaşan sen ol! 🎁</div>', unsafe_allow_html=True)
-        for it in items_all:
+        if not items_f:
+            st.markdown('<div class="empty">Uygun bağış bulunamadı.</div>', unsafe_allow_html=True)
+        for it in items_f:
             render_card(it, "donation")
     with col_n:
         st.markdown('<div class="colhead need">🔴 İhtiyaç Talepleri</div>', unsafe_allow_html=True)
-        if not needs_all:
-            st.markdown('<div class="empty">Henüz oluşturulmuş bir talep yok.</div>', unsafe_allow_html=True)
-        for n in needs_all:
+        if not needs_f:
+            st.markdown('<div class="empty">Uygun talep bulunamadı.</div>', unsafe_allow_html=True)
+        for n in needs_f:
             render_card(n, "request")
 
 # --- Sekme 2: BAĞIŞ EKLE -------------------------------------
@@ -341,21 +362,7 @@ with tab_items:
         else:
             st.error("Lütfen başlık ve iletişim (telefon ya da e-posta) bilgisi gir.")
 
-    st.markdown("---")
-    st.markdown('<div class="sechead">Tüm Bağış İlanları</div>', unsafe_allow_html=True)
-    f1, f2 = st.columns([1, 2])
-    fk = f1.selectbox("Kategori", ["Hepsi"] + CATEGORIES, key="fi")
-    fs = f2.text_input("İlanlarda ara", placeholder="ör. mont, koltuk, kitap...", key="si")
-    sonuc = [it for it in items_all
-             if (fk == "Hepsi" or it["category"] == fk)
-             and (not fs or fs.lower() in (it["title"] + " " + it.get("description", "")).lower())]
-    if sonuc:
-        cols = st.columns(2, gap="medium")
-        for i, it in enumerate(sonuc):
-            with cols[i % 2]:
-                render_card(it, "donation")
-    else:
-        st.markdown('<div class="empty">Aramana uyan bağış bulunamadı.</div>', unsafe_allow_html=True)
+    st.caption("Eklediğin ilanlar Canlı Akış sekmesinde görünür; arama ve filtreleme de oradadır.")
 
 # --- Sekme 3: TALEP EKLE -------------------------------------
 with tab_needs:
@@ -391,18 +398,4 @@ with tab_needs:
         else:
             st.error("Lütfen başlık ve iletişim (telefon ya da e-posta) bilgisi gir.")
 
-    st.markdown("---")
-    st.markdown('<div class="sechead">Tüm İhtiyaç Talepleri</div>', unsafe_allow_html=True)
-    f1, f2 = st.columns([1, 2])
-    fk = f1.selectbox("Kategori", ["Hepsi"] + CATEGORIES, key="fn")
-    fs = f2.text_input("İlanlarda ara", placeholder="ör. tablet, battaniye, çanta...", key="sn")
-    sonuc = [n for n in needs_all
-             if (fk == "Hepsi" or n["category"] == fk)
-             and (not fs or fs.lower() in (n["title"] + " " + n.get("description", "")).lower())]
-    if sonuc:
-        cols = st.columns(2, gap="medium")
-        for i, n in enumerate(sonuc):
-            with cols[i % 2]:
-                render_card(n, "request")
-    else:
-        st.markdown('<div class="empty">Aramana uyan talep bulunamadı.</div>', unsafe_allow_html=True)
+    st.caption("Eklediğin talepler Canlı Akış sekmesinde görünür; arama ve filtreleme de oradadır.")
