@@ -10,7 +10,6 @@
 from datetime import date, datetime
 import streamlit as st
 import firebase_admin
-import json
 from firebase_admin import credentials, firestore
 
 # --- Sabitler -------------------------------------------------
@@ -22,15 +21,9 @@ CITIES = ["Ankara", "İstanbul", "İzmir", "Bursa", "Antalya"]
 # --- Firebase bağlantısı -------------------------------------
 @st.cache_resource
 def get_db():
-    """Firebase'e tek sefer bağlanır (Bulut uyumlu)."""
+    """Firebase'e tek sefer bağlanır (JSON dosyasıyla)."""
     if not firebase_admin._apps:
-        # Eğer site Streamlit Cloud'daysa şifreyi Secrets'tan oku
-        if "firebase_json" in st.secrets:
-            key_dict = json.loads(st.secrets["firebase_json"])
-            cred = credentials.Certificate(key_dict)
-        # Kendi bilgisayarındaysa yerel dosyadan oku
-        else:
-            cred = credentials.Certificate("firebase_key.json")
+        cred = credentials.Certificate("firebase_key.json")
         firebase_admin.initialize_app(cred)
     return firestore.client()
 
@@ -147,6 +140,14 @@ div[data-testid="stVerticalBlockBorderWrapper"]:hover{
 div[data-baseweb="select"]>div{ border-radius:10px!important;
   border:1.5px solid var(--line)!important; background:#fff!important; }
 .stTextInput input:focus,.stTextArea textarea:focus{ border-color:var(--green-2)!important; }
+/* yazdığın metin koyu renk olsun (koyu temada beyaz kalmasın) */
+.stTextInput input,.stTextArea textarea,.stNumberInput input{ color:var(--ink)!important; }
+.stTextInput input::placeholder,.stTextArea textarea::placeholder{ color:#A89F92!important; }
+div[data-baseweb="select"] div{ color:var(--ink)!important; }
+ul[role="listbox"]{ background:#fff!important; }
+ul[role="listbox"] *{ color:var(--ink)!important; }
+/* popover'ı mobil dahil her durumda AÇIK renk yap */
+div[data-baseweb="popover"] > div{ background:#fff!important; }
 .stFormSubmitButton button{ background:var(--green); color:#fff; border:none;
   border-radius:10px; padding:9px 22px; font-weight:700; }
 .stFormSubmitButton button:hover{ background:var(--green-2); color:#fff; }
@@ -158,6 +159,17 @@ div[data-testid="stPopover"] button:hover{ background:var(--green-2)!important; 
 /* WhatsApp link düğmesi */
 [data-testid="stLinkButton"] a{ background:#25D366!important; color:#fff!important;
   border:none!important; border-radius:10px!important; font-weight:700!important; }
+
+/* açılır kutuyu (popover) tema ne olursa olsun AÇIK renk yap */
+div[data-baseweb="popover"] [data-testid="stPopoverBody"],
+[data-testid="stPopoverBody"]{ background:#FFFFFF!important; border-radius:12px!important; }
+[data-testid="stPopoverBody"] *{ color:var(--ink)!important; }
+/* numara kutusu (st.code) açık renk */
+[data-testid="stCode"]{ background:#F0EBE0!important; border:1px solid var(--line)!important; border-radius:10px!important; }
+[data-testid="stCode"] code, [data-testid="stCode"] pre, [data-testid="stCode"] span{
+  color:var(--ink)!important; background:transparent!important; }
+/* WhatsApp düğmesi yazısı beyaz kalsın */
+[data-testid="stPopoverBody"] [data-testid="stLinkButton"] a{ color:#fff!important; }
 
 .sechead{ font-family:'Fraunces',serif; font-size:1.5rem; font-weight:600; color:var(--green); margin:4px 0 2px; }
 hr{ border-color:var(--line); }
