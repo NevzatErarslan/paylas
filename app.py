@@ -11,15 +11,8 @@ import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# --- Sabitler (Kategoriler Genişletildi) -----------------------
-CATEGORIES = {
-    "Giyim": ["Mont", "Ayakkabı", "Tişört", "Pantolon", "Bebek Giyim"],
-    "Mobilya": ["Masa", "Sandalye", "Dolap", "Yatak", "Koltuk"],
-    "Elektronik": ["Telefon", "Laptop", "Buzdolabı", "Isıtıcı", "Tablet"],
-    "Eğitim / Kırtasiye": ["Ders Kitabı", "Roman/Hikaye", "Defter", "Çanta", "Kırtasiye Seti"],
-    "Ev Eşyası": ["Battaniye", "Tencere/Tava", "Halı", "Perde", "Yorgan"],
-    "Çocuk / Oyuncak": ["Eğitici Oyuncak", "Peluş Oyuncak", "Kutu Oyunu", "Bebek Arabası"]
-}
+# --- Sabitler (Alt kategoriler kaldırılarak sadeleştirildi) -------
+CATEGORIES = ["Giyim", "Mobilya", "Elektronik", "Eğitim / Kırtasiye", "Ev Eşyası", "Çocuk / Oyuncak"]
 CITIES = ["Ankara", "İstanbul", "İzmir", "Bursa", "Antalya"]
 
 
@@ -65,20 +58,16 @@ def get_needs():
     return rows
 
 
-# --- EŞLEŞTİRME ALGORİTMASI (Yeni Dengeli Puanlama) -----------
+# --- EŞLEŞTİRME ALGORİTMASI (Kategori eşleşmesi sadeleştirildi) -
 def score_match(need, item):
     """Bir talep ile bir eşya arasında 0-100 uygunluk puanı + gerekçe üretir."""
-    # Aciliyet kalktığı için ağırlıklar: Kategori %50, Konum %40, Bekleme %10 olarak güncellendi.
     W = {"category": 50, "location": 40, "wait": 10}  
     reasons = []
 
-    # 1) Kategori uyumu (%50)
-    if need["category"] == item["category"] and need["sub"] == item["sub"]:
+    # 1) Kategori uyumu (%50) - Doğrudan ana kategori kontrol edilir
+    if need["category"] == item["category"]:
         cat = 1.0
-        reasons.append("✓ Tam kategori ve alt tür eşleşmesi")
-    elif need["category"] == item["category"]:
-        cat = 0.6
-        reasons.append("✓ Aynı kategori, farklı alt tür")
+        reasons.append("✓ Kategori eşleşmesi")
     else:
         cat = 0.0
         reasons.append("• Kategori uyuşmuyor")
@@ -96,7 +85,7 @@ def score_match(need, item):
 
     # 3) Bekleme süresi (%10)
     days = (date.today() - date.fromisoformat(need["date"])).days
-    wait = min(days / 14, 1.0)  # 14 günde maksimum puana ulaşır
+    wait = min(days / 14, 1.0)
     if days >= 5:
         reasons.append(f"✓ {days} gündür bekleyen öncelikli talep")
 
@@ -114,19 +103,19 @@ st.caption("İhtiyaç fazlasını, ihtiyaç sahibiyle buluşturan ücretsiz daya
 
 tab_match, tab_items, tab_needs = st.tabs(["✨ Eşleştirme Motoru", "🎁 Bağış Havuzu", "📦 Talep Havuzu"])
 
-# --- Sekme 1: EŞLEŞTİRME MOTORU -------------------------------
+# --- Sekme 1: EŞLEŞTİRME MOTORU ----------------               ---
 with tab_match:
     needs = get_needs()
     items = get_items()
     if not needs:
         st.info("Henüz sistemde aktif talep yok. Önce 'Talep Havuzu' sekmesinden bir talep ekleyin.")
     else:
-        labels = [f"{n['title']} ({n['sub']} · {n['city']} · Adet: {n.get('quantity', 1)})" for n in needs]
+        labels = [f"{n['title']} ({n['city']} · Adet: {n.get('quantity', 1)})" for n in needs]
         idx = st.selectbox("Eşleştirme yapılacak talebi seçin:", range(len(needs)), format_func=lambda i: labels[i])
         secili = needs[idx]
         
         st.write("---")
-        st.markdown(f"### Selected İhtiyaç: **{secili['title']}**")
+        st.markdown(f"### Seçilen İhtiyaç: **{secili['title']}**")
         st.markdown(f"👤 **Talep Eden:** {secili['requester']} | 📞 **İletişim:** [{secili.get('phone', '---')}](tel:{secili.get('phone', '')})")
         st.caption(f"📝 **Talep Açıklaması:** {secili.get('description', 'Açıklama belirtilmemiş.')}")
         st.write("---")
@@ -141,7 +130,6 @@ with tab_match:
                 key=lambda x: x[1], reverse=True
             )
             
-            # Sadece makul uyumluluktaki veya aynı kategorideki ilanları üstte gösterelim
             for it, puan, gerekceler in eslesmeler:
                 telefon_no = it.get("phone", "Belirtilmemiş")
                 ek_aciklama = it.get("description", "Açıklama belirtilmemiş.")
@@ -149,7 +137,7 @@ with tab_match:
                 kart_basligi = f"🎯 Uygunluk Skoru: %{puan} — {it['title']} ({it['district']}, {it['city']})"
                 
                 with st.expander(kart_basligi):
-                    st.markdown(f"**Alt Kategori:** {it['sub']}  |  **Eşya Durumu:** {it['condition']}")
+                    st.markdown(f"**Kategori:** {it['category']}  |  **Eşya Durumu:** {it['condition']}")
                     st.markdown(f"**Bağışçı:** {it['donor']}")
                     st.info(f"**Bağışçı Açıklaması:** {ek_aciklama}")
                     st.success(f"📞 **Bağışçıya Ulaş:** [{telefon_no}](tel:{telefon_no})")
@@ -160,8 +148,7 @@ with tab_items:
     st.subheader("Eşya Paylaş")
     with st.form("item_form", clear_on_submit=True):
         title = st.text_input("Eşya Başlığı", placeholder="ör. Kışlık çocuk montu")
-        kategori = st.selectbox("Kategori", list(CATEGORIES.keys()))
-        alt = st.selectbox("Alt tür", CATEGORIES[kategori])
+        kategori = st.selectbox("Kategori", CATEGORIES)
         durum = st.selectbox("Eşyanın Durumu", ["Yeni Gibi", "Çok İyi", "İyi", "Orta"])
         sehir = st.selectbox("Bulunduğu Şehir", CITIES)
         ilce = st.text_input("İlçe", placeholder="ör. Çankaya")
@@ -170,9 +157,9 @@ with tab_items:
         description = st.text_area("Eşya Hakkında Ek Bilgiler / Açıklama", placeholder="ör. Herhangi bir yırtığı yoktur, temiz durumdadır.")
         
         if st.form_submit_button("Bağış İlanı Yayınla") and title and phone:
-            add_item({"title": title, "category": kategori, "sub": alt,
-                      "condition": durum, "city": sehir, "district": ilce or "—", 
-                      "donor": bagisci or "Anonim", "phone": phone, "description": description or "Açıklama yok."})
+            add_item({"title": title, "category": kategori, "condition": durum, "city": sehir, 
+                      "district": ilce or "—", "donor": bagisci or "Anonim", "phone": phone, 
+                      "description": description or "Açıklama yok."})
             st.success("Bağış ilanınız başarıyla sisteme yüklendi!")
             st.rerun()
         elif title and not phone:
@@ -181,19 +168,27 @@ with tab_items:
     st.write("---")
     st.subheader("Yüklenen Bağış İlanları")
     
-    # EKLEME: Gelişmiş Filtreleme Barı
-    filtre_kat = st.selectbox("🔍 Kategoriye Göre Filtrele (Bağışlar):", ["Hepsi"] + list(CATEGORIES.keys()), key="filter_items")
+    # Kategori Filtresi + Metin Arama Kutusu (Bağışlar)
+    filtre_kat = st.selectbox("🔍 Kategoriye Göre Filtrele (Bağışlar):", ["Hepsi"] + CATEGORIES, key="filter_items")
+    arama_kelimesi_kat = st.text_input("📝 Kelime ile Ara (Bağış İlanlarında):", placeholder="ör. bot, koltuk, kitap...", key="search_items_text")
     
     tum_bagislar = get_items()
     for it in tum_bagislar:
+        # Kategoriye göre filtreleme
         if filtre_kat != "Hepsi" and it["category"] != filtre_kat:
             continue
             
+        # Kelimeye göre filtreleme (Başlık veya açıklamada geçiyor mu kontrolü)
+        if arama_kelimesi_kat:
+            ilan_metni = (it["title"] + " " + it.get("description", "")).lower()
+            if arama_kelimesi_kat.lower() not in ilan_metni:
+                continue
+                
         telefon_no = it.get("phone", "Belirtilmemiş")
         ek_aciklama = it.get("description", "Açıklama belirtilmemiş.")
         
         with st.expander(f"🎁 {it['title']} — {it['district']}, {it['city']}"):
-            st.markdown(f"**Kategori:** {it['category']} / {it['sub']} | **Durum:** {it['condition']}")
+            st.markdown(f"**Kategori:** {it['category']} | **Durum:** {it['condition']}")
             st.markdown(f"**Bağışçı:** {it['donor']}")
             st.info(f"**Ek Ürün Bilgisi:** {ek_aciklama}")
             st.success(f"📞 **İletişim Numarası:** [{telefon_no}](tel:{telefon_no})")
@@ -203,24 +198,18 @@ with tab_needs:
     st.subheader("İhtiyaç Talebi Oluştur")
     with st.form("need_form", clear_on_submit=True):
         title = st.text_input("İhtiyaç Başlığı", placeholder="ör. Üniversite hazırlık kitapları")
-        kategori = st.selectbox("Kategori", list(CATEGORIES.keys()), key="nk")
-        alt = st.selectbox("Alt tür", CATEGORIES[kategori], key="ns")
-        
-        # Hane(Kişi) -> "Adet" olarak güncellendi
+        kategori = st.selectbox("Kategori", CATEGORIES, key="nk")
         adet = st.number_input("Gerekli Adet / Miktar", min_value=1, value=1, step=1)
-        
         sehir = st.selectbox("Yaşadığınız Şehir", CITIES, key="nc")
         ilce = st.text_input("İlçe", placeholder="ör. Mamak", key="nd")
         eden = st.text_input("İsim Soyisim / Adınız", placeholder="ör. Ayşe Y.")
-        
-        # TALEPLER İÇİN YENİ EKLENEN ALANLAR
         phone = st.text_input("İletişim Telefon Numarası", placeholder="ör. 05321234567", key="n_phone")
         description = st.text_area("İhtiyaç Durumu Hakkında Ek Açıklama", placeholder="ör. Öğrenci yurdunda kalıyorum, eğitim setine ihtiyacım var.", key="n_desc")
         
         if st.form_submit_button("Talebi Gönder ve Yayınla") and title and phone:
-            add_need({"title": title, "category": kategori, "sub": alt,
-                      "quantity": int(adet), "city": sehir, "district": ilce or "—", 
-                      "requester": eden or "Anonim", "phone": phone, "description": description or "Açıklama yok."})
+            add_need({"title": title, "category": kategori, "quantity": int(adet), "city": sehir, 
+                      "district": ilce or "—", "requester": eden or "Anonim", "phone": phone, 
+                      "description": description or "Açıklama yok."})
             st.success("İhtiyaç talebiniz başarıyla sisteme yüklendi!")
             st.rerun()
         elif title and not phone:
@@ -229,20 +218,6 @@ with tab_needs:
     st.write("---")
     st.subheader("Güncel İhtiyaç Talepleri")
     
-    # EKLEME: Gelişmiş Filtreleme Barı
-    filtre_talep = st.selectbox("🔍 Kategoriye Göre Filtrele (Talepler):", ["Hepsi"] + list(CATEGORIES.keys()), key="filter_needs")
-    
-    tum_talepler = get_needs()
-    for n in tum_talepler:
-        if filtre_talep != "Hepsi" and n["category"] != filtre_talep:
-            continue
-            
-        t_telefon = n.get("phone", "Belirtilmemiş")
-        t_aciklama = n.get("description", "Açıklama belirtilmemiş.")
-        t_adet = n.get("quantity", 1)
-        
-        with st.expander(f"📦 {n['title']} — Adet: {t_adet} ({n['district']}, {n['city']})"):
-            st.markdown(f"**Kategori:** {n['category']} / {n['sub']}")
-            st.markdown(f"**Talep Eden:** {n['requester']}")
-            st.info(f"**Talep Detayı / Gerekçe:** {t_aciklama}")
-            st.success(f"📞 **İhtiyaç Sahibine Ulaş:** [{t_telefon}](tel:{t_telefon})")
+    # Kategori Filtresi + Metin Arama Kutusu (Talepler)
+    filtre_talep = st.selectbox("🔍 Kategoriye Göre Filtrele (Talepler):", ["Hepsi"] + CATEGORIES, key="filter_needs")
+    arama_kelimesi_talep = st.text_input
