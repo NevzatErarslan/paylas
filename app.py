@@ -10,6 +10,7 @@
 from datetime import date, datetime
 import streamlit as st
 import firebase_admin
+import json
 from firebase_admin import credentials, firestore
 
 # --- Sabitler -------------------------------------------------
@@ -21,9 +22,15 @@ CITIES = ["Ankara", "İstanbul", "İzmir", "Bursa", "Antalya"]
 # --- Firebase bağlantısı -------------------------------------
 @st.cache_resource
 def get_db():
-    """Firebase'e tek sefer bağlanır (JSON dosyasıyla)."""
+    """Firebase'e tek sefer bağlanır (Gelişmiş bulut uyumlu sürüm)."""
     if not firebase_admin._apps:
-        cred = credentials.Certificate("firebase_key.json")
+        # Eğer site Streamlit Cloud'da çalışıyorsa şifreyi Secrets'tan oku
+        if "firebase_json" in st.secrets:
+            key_dict = json.loads(st.secrets["firebase_json"])
+            cred = credentials.Certificate(key_dict)
+        # Eğer kendi bilgisayarında çalışıyorsa yerel dosyadan oku
+        else:
+            cred = credentials.Certificate("firebase_key.json")
         firebase_admin.initialize_app(cred)
     return firestore.client()
 
