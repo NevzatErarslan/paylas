@@ -147,6 +147,12 @@ div[data-baseweb="select"]>div{ border-radius:10px!important;
 div[data-baseweb="select"] div{ color:var(--ink)!important; }
 ul[role="listbox"]{ background:#fff!important; }
 ul[role="listbox"] *{ color:var(--ink)!important; }
+/* seçim kutusu (selectbox) hem kapalı hem açık halde AÇIK renk */
+div[data-baseweb="select"] > div{ background:#fff!important; }
+div[data-baseweb="select"] *{ color:var(--ink)!important; }
+[data-baseweb="menu"], [data-baseweb="menu"] ul{ background:#fff!important; }
+[data-baseweb="menu"] li, [data-baseweb="menu"] li *{ color:var(--ink)!important; background:#fff!important; }
+li[role="option"]{ background:#fff!important; color:var(--ink)!important; }
 /* popover'ı mobil dahil her durumda AÇIK renk yap */
 div[data-baseweb="popover"] > div{ background:#fff!important; }
 .stFormSubmitButton button{ background:var(--green); color:#fff; border:none;
