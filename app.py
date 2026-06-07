@@ -1,16 +1,16 @@
 # ============================================================
 #  PAYLAŞ — Dayanışma & Bağış Eşleştirme Uygulaması
-#  Tek dosya, Python (Streamlit + SQLite)
+#  Firebase (Firestore) sürümü — veri bulutta, herkes ortak görür
 # ============================================================
-#  ÇALIŞTIRMAK İÇİN:
-#    1) pip install streamlit
-#    2) streamlit run app.py
-#  Tarayıcıda otomatik açılır. Veriler "paylas.db" dosyasında saklanır.
+#  GEREKLİ:
+#    pip install streamlit firebase-admin
+#  Firebase kurulumu ve secrets ayarı için yanındaki rehbere bak.
 # ============================================================
 
-import sqlite3
-from datetime import date
+from datetime import date, datetime
 import streamlit as st
+import firebase_admin
+from firebase_admin import credentials, firestore
 
 # --- Sabitler -------------------------------------------------
 CATEGORIES = {
@@ -24,61 +24,49 @@ CITIES = ["Ankara", "İstanbul", "İzmir", "Bursa", "Antalya"]
 URGENCY = {"Düşük": 1, "Orta": 2, "Yüksek": 3, "Acil": 4}
 
 
-# --- Veritabanı (SQLite) -------------------------------------
-def db():
-    conn = sqlite3.connect("paylas.db")
-    conn.row_factory = sqlite3.Row  # sonuçlara isimle erişmek için
-    return conn
+# --- Firebase bağlantısı -------------------------------------
+@st.cache_resource
+def get_db():
+    """Firebase'e tek sefer bağlanır (secrets içindeki bilgilerle)."""
+    if not firebase_admin._apps:
+        info = dict(st.secrets["firebase"])
+        # private_key bazen tek satıra sıkışır; satır sonlarını düzelt
+        info["private_key"] = info["private_key"].replace("\\n", "\n")
+        cred = credentials.Certificate(info)
+        firebase_admin.initialize_app(cred)
+    return firestore.client()
 
 
-def setup():
-    """Tablolar yoksa oluşturur."""
-    conn = db()
-    conn.execute("""CREATE TABLE IF NOT EXISTS items(
-        id INTEGER PRIMARY KEY, title TEXT, category TEXT, sub TEXT,
-        condition TEXT, city TEXT, district TEXT, donor TEXT, date TEXT)""")
-    conn.execute("""CREATE TABLE IF NOT EXISTS needs(
-        id INTEGER PRIMARY KEY, title TEXT, category TEXT, sub TEXT,
-        urgency TEXT, household INTEGER, city TEXT, district TEXT,
-        requester TEXT, date TEXT)""")
-    conn.commit()
-    conn.close()
+db = get_db()
 
 
+# --- Veri fonksiyonları (Firestore) --------------------------
 def add_item(d):
-    conn = db()
-    conn.execute("""INSERT INTO items
-        (title,category,sub,condition,city,district,donor,date)
-        VALUES (?,?,?,?,?,?,?,?)""",
-        (d["title"], d["category"], d["sub"], d["condition"],
-         d["city"], d["district"], d["donor"], date.today().isoformat()))
-    conn.commit()
-    conn.close()
+    db.collection("items").add({
+        **d,
+        "date": date.today().isoformat(),
+        "created": datetime.utcnow().isoformat(),
+    })
 
 
 def add_need(d):
-    conn = db()
-    conn.execute("""INSERT INTO needs
-        (title,category,sub,urgency,household,city,district,requester,date)
-        VALUES (?,?,?,?,?,?,?,?,?)""",
-        (d["title"], d["category"], d["sub"], d["urgency"], d["household"],
-         d["city"], d["district"], d["requester"], date.today().isoformat()))
-    conn.commit()
-    conn.close()
+    db.collection("needs").add({
+        **d,
+        "date": date.today().isoformat(),
+        "created": datetime.utcnow().isoformat(),
+    })
 
 
 def get_items():
-    conn = db()
-    rows = conn.execute("SELECT * FROM items ORDER BY id DESC").fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+    rows = [{**doc.to_dict(), "id": doc.id} for doc in db.collection("items").stream()]
+    rows.sort(key=lambda r: r.get("created", ""), reverse=True)
+    return rows
 
 
 def get_needs():
-    conn = db()
-    rows = conn.execute("SELECT * FROM needs ORDER BY id DESC").fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+    rows = [{**doc.to_dict(), "id": doc.id} for doc in db.collection("needs").stream()]
+    rows.sort(key=lambda r: r.get("created", ""), reverse=True)
+    return rows
 
 
 # --- EŞLEŞTİRME ALGORİTMASI (projenin kalbi) -----------------
@@ -124,29 +112,10 @@ def score_match(need, item):
     return round(score), reasons
 
 
-# --- Başlangıç örnek verisi (sadece tablo boşsa) -------------
-def seed():
-    if not get_items():
-        for d in [
-            {"title": "Kışlık çocuk montu", "category": "Giyim", "sub": "Mont", "condition": "İyi", "city": "Ankara", "district": "Çankaya", "donor": "Elif K."},
-            {"title": "Battaniye (2 adet)", "category": "Ev Eşyası", "sub": "Battaniye", "condition": "Yeni Gibi", "city": "Ankara", "district": "Keçiören", "donor": "Zeynep T."},
-            {"title": "Lise matematik kitapları", "category": "Kırtasiye", "sub": "Kitap", "condition": "İyi", "city": "İzmir", "district": "Bornova", "donor": "Can D."},
-        ]:
-            add_item(d)
-    if not get_needs():
-        for d in [
-            {"title": "Üşüyen çocuğum için mont", "category": "Giyim", "sub": "Mont", "urgency": "Acil", "household": 4, "city": "Ankara", "district": "Mamak", "requester": "Ayşe Y."},
-            {"title": "Öğrencim için ders kitabı", "category": "Kırtasiye", "sub": "Kitap", "urgency": "Orta", "household": 3, "city": "İzmir", "district": "Karşıyaka", "requester": "Veli H."},
-        ]:
-            add_need(d)
-
-
 # ============================================================
 #  ARAYÜZ
 # ============================================================
 st.set_page_config(page_title="Paylaş", page_icon="🤝", layout="centered")
-setup()
-seed()
 
 st.title("🤝 Paylaş")
 st.caption("İhtiyaç fazlasını, ihtiyaç sahibiyle buluşturan ücretsiz dayanışma platformu.")
@@ -165,17 +134,19 @@ with tab_match:
         secili = needs[idx]
         st.write("Bu talebe en uygun eşyalar (puana göre sıralı):")
 
-        # Tüm eşyaları puanla ve sırala
-        eslesmeler = sorted(
-            [(it, *score_match(secili, it)) for it in items],
-            key=lambda x: x[1], reverse=True
-        )
-        for it, puan, gerekceler in eslesmeler:
-            with st.container(border=True):
-                c1, c2 = st.columns([1, 4])
-                c1.metric("Uygunluk", puan)
-                c2.markdown(f"**{it['title']}**  \n{it['sub']} · {it['condition']} · {it['district']}, {it['city']}")
-                c2.caption("  ".join(gerekceler))
+        if not items:
+            st.info("Henüz bağış yok. 'Bağışlar' sekmesinden eşya ekle.")
+        else:
+            eslesmeler = sorted(
+                [(it, *score_match(secili, it)) for it in items],
+                key=lambda x: x[1], reverse=True
+            )
+            for it, puan, gerekceler in eslesmeler:
+                with st.container(border=True):
+                    c1, c2 = st.columns([1, 4])
+                    c1.metric("Uygunluk", puan)
+                    c2.markdown(f"**{it['title']}**  \n{it['sub']} · {it['condition']} · {it['district']}, {it['city']}")
+                    c2.caption("  ".join(gerekceler))
 
 # --- Sekme 2: BAĞIŞLAR ---------------------------------------
 with tab_items:
