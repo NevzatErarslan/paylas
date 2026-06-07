@@ -152,6 +152,9 @@ div[data-baseweb="popover"] > div{ background:#fff!important; }
 .stFormSubmitButton button{ background:var(--green); color:#fff; border:none;
   border-radius:10px; padding:9px 22px; font-weight:700; }
 .stFormSubmitButton button:hover{ background:var(--green-2); color:#fff; }
+.stButton button{ background:var(--green); color:#fff; border:none;
+  border-radius:10px; padding:9px 22px; font-weight:700; }
+.stButton button:hover{ background:var(--green-2); color:#fff; }
 
 /* "İletişime Geç" popover düğmesi */
 div[data-testid="stPopover"] button{ background:var(--green)!important; color:#fff!important;
@@ -277,32 +280,35 @@ with tab_home:
 with tab_items:
     st.markdown('<div class="sechead">Eşya Paylaş</div>', unsafe_allow_html=True)
     st.caption("İhtiyaç fazlası eşyanı paylaş, ihtiyaç sahibine ulaşsın.")
-    yontem_i = st.radio("İletişim yöntemi", ["📞 Telefon numarası", "✉️ E-posta (telefonumu paylaşmak istemiyorum)"],
-                        horizontal=True, key="yontem_item")
-    with st.form("item_form", clear_on_submit=True):
-        c1, c2 = st.columns(2)
-        title = c1.text_input("Eşya Başlığı", placeholder="ör. Kışlık çocuk montu")
-        kategori = c2.selectbox("Kategori", CATEGORIES)
-        durum = c1.selectbox("Eşyanın Durumu", ["Yeni Gibi", "Çok İyi", "İyi", "Orta"])
-        sehir = c2.selectbox("Bulunduğu Şehir", CITIES)
-        ilce = c1.text_input("İlçe", placeholder="ör. Çankaya")
-        bagisci = c2.text_input("İsim Soyisim", placeholder="ör. Elif K.")
-        if yontem_i.startswith("📞"):
-            phone = st.text_input("İletişim Telefonu", placeholder="ör. 05551234567")
-            email = ""
-        else:
-            email = st.text_input("İletişim E-postası", placeholder="ör. ornek@mail.com")
-            phone = ""
-        description = st.text_area("Açıklama", placeholder="ör. Yırtığı yoktur, temiz durumdadır.")
-        gonder = st.form_submit_button("Bağış İlanını Yayınla")
-        if gonder and title and (phone or email):
+    if st.session_state.pop("i_done", False):
+        for _k in ["i_title", "i_ilce", "i_bagisci", "i_phone", "i_email", "i_desc"]:
+            st.session_state.pop(_k, None)
+        st.success("Bağış ilanın başarıyla yayınlandı! 🎉")
+
+    c1, c2 = st.columns(2)
+    title = c1.text_input("Eşya Başlığı", key="i_title", placeholder="ör. Kışlık çocuk montu")
+    kategori = c2.selectbox("Kategori", CATEGORIES, key="i_kat")
+    durum = c1.selectbox("Eşyanın Durumu", ["Yeni Gibi", "Çok İyi", "İyi", "Orta"], key="i_durum")
+    sehir = c2.selectbox("Bulunduğu Şehir", CITIES, key="i_sehir")
+    ilce = c1.text_input("İlçe", key="i_ilce", placeholder="ör. Çankaya")
+    bagisci = c2.text_input("İsim Soyisim", key="i_bagisci", placeholder="ör. Elif K.")
+    yontem_i = c1.selectbox("İletişim", ["📞 Telefon", "✉️ E-posta"], key="i_yontem")
+    if yontem_i.startswith("📞"):
+        phone = c2.text_input("Telefon numaranız", key="i_phone", placeholder="ör. 05551234567")
+        email = ""
+    else:
+        phone = ""
+        email = c2.text_input("E-posta adresiniz", key="i_email", placeholder="ör. ornek@mail.com")
+    description = st.text_area("Açıklama", key="i_desc", placeholder="ör. Yırtığı yoktur, temiz durumdadır.")
+    if st.button("Bağış İlanını Yayınla", key="i_submit"):
+        if title and (phone or email):
             add_item({"title": title, "category": kategori, "condition": durum, "city": sehir,
                       "district": ilce or "—", "donor": bagisci or "Anonim",
                       "phone": phone, "email": email, "description": description or "Açıklama yok."})
-            st.success("Bağış ilanın başarıyla yayınlandı!")
+            st.session_state["i_done"] = True
             st.rerun()
-        elif gonder and not (phone or email):
-            st.error("Lütfen iletişim için telefon ya da e-posta bilgisi gir.")
+        else:
+            st.error("Lütfen başlık ve iletişim (telefon ya da e-posta) bilgisi gir.")
 
     st.markdown("---")
     st.markdown('<div class="sechead">Tüm Bağış İlanları</div>', unsafe_allow_html=True)
@@ -324,32 +330,35 @@ with tab_items:
 with tab_needs:
     st.markdown('<div class="sechead">İhtiyaç Talebi Oluştur</div>', unsafe_allow_html=True)
     st.caption("İhtiyacını paylaş, bağışçılar sana ulaşsın.")
-    yontem_n = st.radio("İletişim yöntemi", ["📞 Telefon numarası", "✉️ E-posta (telefonumu paylaşmak istemiyorum)"],
-                        horizontal=True, key="yontem_need")
-    with st.form("need_form", clear_on_submit=True):
-        c1, c2 = st.columns(2)
-        title = c1.text_input("İhtiyaç Başlığı", placeholder="ör. Üniversite hazırlık kitapları")
-        kategori = c2.selectbox("Kategori", CATEGORIES, key="nk")
-        adet = c1.number_input("Gerekli Adet", min_value=1, value=1, step=1)
-        sehir = c2.selectbox("Yaşadığın Şehir", CITIES, key="nc")
-        ilce = c1.text_input("İlçe", placeholder="ör. Mamak", key="nd")
-        eden = c2.text_input("İsim Soyisim", placeholder="ör. Ayşe Y.")
-        if yontem_n.startswith("📞"):
-            phone = st.text_input("İletişim Telefonu", placeholder="ör. 05321234567", key="np")
-            email = ""
-        else:
-            email = st.text_input("İletişim E-postası", placeholder="ör. ornek@mail.com", key="nem")
-            phone = ""
-        description = st.text_area("Açıklama", placeholder="ör. Öğrenci yurdunda kalıyorum, kitap setine ihtiyacım var.", key="ndsc")
-        gonder = st.form_submit_button("Talebi Yayınla")
-        if gonder and title and (phone or email):
+    if st.session_state.pop("n_done", False):
+        for _k in ["n_title", "n_ilce", "n_eden", "n_phone", "n_email", "n_desc", "n_adet"]:
+            st.session_state.pop(_k, None)
+        st.success("Talebin başarıyla yayınlandı! 🎉")
+
+    c1, c2 = st.columns(2)
+    title = c1.text_input("İhtiyaç Başlığı", key="n_title", placeholder="ör. Üniversite hazırlık kitapları")
+    kategori = c2.selectbox("Kategori", CATEGORIES, key="n_kat")
+    adet = c1.number_input("Gerekli Adet", min_value=1, value=1, step=1, key="n_adet")
+    sehir = c2.selectbox("Yaşadığın Şehir", CITIES, key="n_sehir")
+    ilce = c1.text_input("İlçe", key="n_ilce", placeholder="ör. Mamak")
+    eden = c2.text_input("İsim Soyisim", key="n_eden", placeholder="ör. Ayşe Y.")
+    yontem_n = c1.selectbox("İletişim", ["📞 Telefon", "✉️ E-posta"], key="n_yontem")
+    if yontem_n.startswith("📞"):
+        phone = c2.text_input("Telefon numaranız", key="n_phone", placeholder="ör. 05321234567")
+        email = ""
+    else:
+        phone = ""
+        email = c2.text_input("E-posta adresiniz", key="n_email", placeholder="ör. ornek@mail.com")
+    description = st.text_area("Açıklama", key="n_desc", placeholder="ör. Öğrenci yurdunda kalıyorum, kitap setine ihtiyacım var.")
+    if st.button("Talebi Yayınla", key="n_submit"):
+        if title and (phone or email):
             add_need({"title": title, "category": kategori, "quantity": int(adet), "city": sehir,
                       "district": ilce or "—", "requester": eden or "Anonim",
                       "phone": phone, "email": email, "description": description or "Açıklama yok."})
-            st.success("Talebin başarıyla yayınlandı!")
+            st.session_state["n_done"] = True
             st.rerun()
-        elif gonder and not (phone or email):
-            st.error("Lütfen iletişim için telefon ya da e-posta bilgisi gir.")
+        else:
+            st.error("Lütfen başlık ve iletişim (telefon ya da e-posta) bilgisi gir.")
 
     st.markdown("---")
     st.markdown('<div class="sechead">Tüm İhtiyaç Talepleri</div>', unsafe_allow_html=True)
