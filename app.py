@@ -259,9 +259,16 @@ with tab_home:
             })
             
     if map_data:
-        st.markdown("<p style='text-align:center; color:#857B6E; font-size:0.9rem; margin-bottom:5px;'>📍 Türkiye Geneli İlan Dağılımı (Yeşil: Bağış, Kırmızı: Talep)</p>", unsafe_allow_html=True)
         df_map = pd.DataFrame(map_data)
-        st.map(df_map, latitude="lat", longitude="lon", color="color", size="size")
+        
+        # Haritayı küçültmek ve ortalamak için sayfayı 3 kolona bölüyoruz
+        bos_sol, harita_kolonu, bos_sag = st.columns([1, 2, 1])
+        
+        with harita_kolonu:
+            st.markdown("<p style='text-align:center; color:#857B6E; font-size:0.9rem; margin-bottom:5px;'>📍 Türkiye Geneli İlan Dağılımı</p>", unsafe_allow_html=True)
+            # zoom=5 parametresi ile haritayı doğrudan Türkiye'ye sabitliyoruz
+            st.map(df_map, latitude="lat", longitude="lon", color="color", size="size", zoom=5)
+            
         st.write("---")
 
     # Arama / filtre çubuğu
